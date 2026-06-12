@@ -830,7 +830,7 @@ with st.sidebar:
     st.markdown('<div class="nav-label">Menu Utama</div>', unsafe_allow_html=True)
     menu = st.radio(
         "Pilih Halaman",
-        ["🏠 Dashboard","🔬 Cek Kompatibilitas","📚 Database Bahan","📖 Materi FCOT","⭐ Favorit","🕐 Riwayat","📋 Panduan"],
+        ["🏠 Dashboard","🔬 Cek Kompatibilitas","🗂️ Matriks Penyimpanan","📚 Database Bahan","📖 Materi FCOT","⭐ Favorit","🕐 Riwayat","📋 Panduan"],
         label_visibility="collapsed"
     )
 
@@ -901,19 +901,38 @@ if menu == "🏠 Dashboard":
             st.markdown(f"<div style='color:#8892a4;font-size:0.82rem;text-align:center;'>… dan {len(filtered)-8} bahan lainnya di Database</div>", unsafe_allow_html=True)
 
     with col_b:
-        st.markdown("### 📋 Matriks Kompatibilitas FCOT")
-        matrix_data = {
-            "":           ["🔥 F","🧪 C","💥 O","☠️ T"],
-            "🔥 Flammable": ["—",  "✅",  "❌",  "⚠️"],
-            "🧪 Corrosive": ["✅", "—",   "❌",  "⚠️"],
-            "💥 Oxidizing": ["❌", "❌",  "—",   "✅"],
-            "☠️ Toxic":     ["⚠️", "⚠️",  "✅",  "—"],
+        st.markdown("### 📋 Matriks Kompatibilitas Penyimpanan FCOT")
+        st.markdown("""<div class="info-strip" style="font-size:0.8rem">
+        ⚠️ Berdasarkan <b>keamanan penyimpanan</b> — bukan reaksi kimia. Pisahkan Asam & Basa dalam penyimpanan.</div>""", unsafe_allow_html=True)
+
+        # Matriks penyimpanan Asam
+        st.markdown("**🟠 Sub-Matriks: Asam**")
+        matrix_acid = {
+            "":                  ["🔥 F-Asam","🧪 C-Asam","💥 O-Asam","☠️ T-Asam"],
+            "🔥 F (Flammable)":  ["✅ Sama zona", "⚠️ Pisah jauh","❌ LARANG","⚠️ APD ketat"],
+            "🧪 C (Corrosive)":  ["⚠️ Pisah jauh","✅ Zona asam","❌ LARANG","⚠️ Ventilasi"],
+            "💥 O (Oxidizing)":  ["❌ LARANG","❌ LARANG","✅ Oksidator saja","❌ LARANG"],
+            "☠️ T (Toxic)":      ["⚠️ APD ketat","⚠️ Ventilasi","❌ LARANG","✅ Zona toksik"],
         }
-        df = pd.DataFrame(matrix_data).set_index("")
-        st.dataframe(df, use_container_width=True)
+        df_acid = pd.DataFrame(matrix_acid).set_index("")
+        st.dataframe(df_acid, use_container_width=True)
+
+        # Matriks penyimpanan Basa
+        st.markdown("**🔵 Sub-Matriks: Basa**")
+        matrix_base = {
+            "":                  ["🔥 F-Basa","🧪 C-Basa","💥 O-Basa","☠️ T-Basa"],
+            "🔥 F (Flammable)":  ["✅ Sama zona","⚠️ Pisah jauh","❌ LARANG","⚠️ APD ketat"],
+            "🧪 C (Corrosive)":  ["⚠️ Pisah jauh","✅ Zona basa","⚠️ Evaluasi","⚠️ Ventilasi"],
+            "💥 O (Oxidizing)":  ["❌ LARANG","⚠️ Evaluasi","✅ Oksidator saja","❌ LARANG"],
+            "☠️ T (Toxic)":      ["⚠️ APD ketat","⚠️ Ventilasi","❌ LARANG","✅ Zona toksik"],
+        }
+        df_base = pd.DataFrame(matrix_base).set_index("")
+        st.dataframe(df_base, use_container_width=True)
+
         st.markdown("""
-        <div style='font-size:0.82rem;color:#8892a4;margin-top:8px;'>
-        ✅ Dapat disimpan berdekatan &nbsp;|&nbsp; ❌ Harus terpisah &nbsp;|&nbsp; ⚠️ Evaluasi kasus per kasus
+        <div style='font-size:0.78rem;color:#8892a4;margin-top:8px;line-height:1.7;'>
+        ✅ Dapat disimpan zona sama &nbsp;|&nbsp; ❌ HARUS terpisah &nbsp;|&nbsp; ⚠️ Perlu evaluasi kondisi<br>
+        🔴 <b>Asam & Basa wajib dipisah area penyimpanan</b>, terlepas dari klasifikasi FCOT
         </div>
         """, unsafe_allow_html=True)
 
@@ -1133,6 +1152,269 @@ elif menu == "🔬 Cek Kompatibilitas":
                 st.rerun()
             else:
                 st.error("Nama dan rumus kimia wajib diisi.")
+
+# ═══════════════════════════════════════════
+#  PAGE: MATRIKS PENYIMPANAN
+# ═══════════════════════════════════════════
+elif menu == "🗂️ Matriks Penyimpanan":
+    st.markdown("## 🗂️ Matriks Kompatibilitas Penyimpanan FCOT")
+    st.markdown("""
+    <div class="info-strip">
+    📦 Matriks ini menunjukkan <strong>keamanan penyimpanan bersama</strong> berdasarkan klasifikasi FCOT
+    — <em>bukan</em> berdasarkan produk reaksi kimia. Prinsip: bahan yang tidak seharusnya disimpan
+    berdekatan dapat bereaksi jika terjadi kebocoran, tumpahan, atau kecelakaan.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style='background:rgba(239,68,68,0.1);border-left:4px solid #ef4444;border-radius:0 12px 12px 0;
+    padding:1rem 1.2rem;margin:0.5rem 0 1.2rem;'>
+    <h4 style='color:#fca5a5;margin:0 0 0.4rem;'>🔴 Aturan Wajib: Asam dan Basa SELALU Terpisah</h4>
+    <p style='color:#e2e8f0;font-size:0.87rem;margin:0;line-height:1.6;'>
+    Asam (H₂SO₄, HCl, HNO₃, dst.) dan Basa (NaOH, KOH, NH₃, dst.) harus disimpan di area/lemari
+    yang BERBEDA, terlepas dari klasifikasi FCOT-nya. Tumpahan asam yang bertemu basa dapat menghasilkan
+    panas dan semburan cairan korosif yang berbahaya.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_acid, tab_base, tab_cross, tab_rules = st.tabs([
+        "🟠 Matriks Asam", "🔵 Matriks Basa", "🔀 Asam vs Basa", "📏 Aturan Penyimpanan"
+    ])
+
+    # ── LEGENDA ──
+    legend_html = """
+    <div style='display:flex;gap:1rem;flex-wrap:wrap;margin:0.8rem 0 1.2rem;font-size:0.82rem;'>
+      <span style='background:rgba(34,197,94,0.15);border:1px solid #22c55e;border-radius:8px;padding:4px 12px;color:#86efac;'>✅ Dapat Satu Zona</span>
+      <span style='background:rgba(245,158,11,0.15);border:1px solid #f59e0b;border-radius:8px;padding:4px 12px;color:#fde68a;'>⚠️ Pisah / Evaluasi</span>
+      <span style='background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:8px;padding:4px 12px;color:#fca5a5;'>❌ WAJIB Terpisah</span>
+      <span style='background:rgba(148,163,184,0.1);border:1px solid #475569;border-radius:8px;padding:4px 12px;color:#8892a4;'>— Sama jenis</span>
+    </div>"""
+
+    with tab_acid:
+        st.markdown("### 🟠 Kompatibilitas Penyimpanan — Kelompok ASAM")
+        st.markdown("""<div class="info-box"><h4>ℹ️ Tentang Matriks Ini</h4>
+        <p>Baris & kolom = klasifikasi FCOT bahan <strong>bertipe Asam</strong>.
+        Nilai sel = apakah kedua bahan boleh disimpan di zona/rak yang sama.
+        Contoh: H₂SO₄ (C-Asam) vs HNO₃ (C+O-Asam) → ❌ karena ada oksidator.</p></div>""",
+        unsafe_allow_html=True)
+        st.markdown(legend_html, unsafe_allow_html=True)
+
+        # Full storage matrix for acids
+        acid_matrix = {
+            "":                        ["🔥 F\nAcid","🧪 C saja\nAcid","🧪+💥 C+O\nAcid","🧪+☠️ C+T\nAcid","💥 O saja\nAcid","☠️ T saja\nAcid"],
+            "🔥 F – Acid\n(mis. CH₃COOH)": ["—",     "⚠️ Pisah",   "❌ Larang",    "⚠️ APD",    "❌ Larang",   "⚠️ APD"],
+            "🧪 C saja – Acid\n(mis. H₃PO₄)": ["⚠️ Pisah","—",        "❌ Larang",    "⚠️ Ventil", "❌ Larang",   "✅ Zona asam"],
+            "🧪+💥 C+O – Acid\n(mis. HNO₃)": ["❌ Larang","❌ Larang", "—",           "❌ Larang",  "✅ Oksidator","❌ Larang"],
+            "🧪+☠️ C+T – Acid\n(mis. HF, HCl)": ["⚠️ APD", "⚠️ Ventil","❌ Larang",   "—",         "❌ Larang",   "⚠️ Ventil"],
+            "💥 O saja – Acid\n(mis. H₂O₂)": ["❌ Larang","❌ Larang", "✅ Oksidator","❌ Larang",  "—",          "❌ Larang"],
+            "☠️ T saja – Acid\n(mis. HCN aq)": ["⚠️ APD","✅ Zona asam","❌ Larang",  "⚠️ Ventil", "❌ Larang",  "—"],
+        }
+        df_a = pd.DataFrame(acid_matrix).set_index("")
+        st.dataframe(df_a, use_container_width=True, height=280)
+
+        st.markdown("#### 📋 Contoh Bahan per Kategori Asam")
+        examples_acid = [
+            ("🔥 F – Asam", "#ff6b35", "Asam Asetat (CH₃COOH) — mudah terbakar + korosif ringan. Titik nyala 39°C."),
+            ("🧪 C saja – Asam", "#4ecdc4", "Asam Fosfat (H₃PO₄) — hanya korosif, tidak flammable, tidak oksidator, tidak toksik akut."),
+            ("🧪+💥 C+O – Asam", "#ffe66d", "Asam Nitrat (HNO₃) — korosif SEKALIGUS oksidator kuat. Paling reaktif, wajib sendiri."),
+            ("🧪+☠️ C+T – Asam", "#a29bfe", "Asam Klorida (HCl), Asam Fluorida (HF) — korosif + toksik. Uap sangat berbahaya."),
+            ("💥 O saja – Asam", "#f59e0b", "Hidrogen Peroksida (H₂O₂) pekat — oksidator, tidak terklasifikasi asam kuat tapi bersifat oksidatif."),
+            ("☠️ T saja – Asam", "#ef4444", "Larutan HCN encer, senyawa asam toksik lain — fokus bahaya pada toksisitas."),
+        ]
+        for cat, color, desc in examples_acid:
+            st.markdown(f"""<div style='background:rgba(26,34,54,0.8);border-left:3px solid {color};
+            border-radius:0 8px 8px 0;padding:8px 14px;margin:4px 0;font-size:0.83rem;'>
+            <b style='color:{color};'>{cat}</b><br><span style='color:#cbd5e1;'>{desc}</span></div>""",
+            unsafe_allow_html=True)
+
+    with tab_base:
+        st.markdown("### 🔵 Kompatibilitas Penyimpanan — Kelompok BASA")
+        st.markdown("""<div class="info-box"><h4>ℹ️ Tentang Matriks Ini</h4>
+        <p>Baris & kolom = klasifikasi FCOT bahan <strong>bertipe Basa</strong>.
+        Contoh: NaOH (C-Basa) vs NH₃ (C+T-Basa) → ⚠️ perlu ventilasi ekstra karena ada toksik.</p></div>""",
+        unsafe_allow_html=True)
+        st.markdown(legend_html, unsafe_allow_html=True)
+
+        base_matrix = {
+            "":                           ["🧪 C saja\nBase","🧪+☠️ C+T\nBase","☠️ T saja\nBase","💥 O\nBase","🔥 F\nBase"],
+            "🧪 C saja – Base\n(mis. NaOH, KOH)": ["—",           "⚠️ Ventil",    "⚠️ APD",       "⚠️ Evaluasi","⚠️ Pisah"],
+            "🧪+☠️ C+T – Base\n(mis. NH₃)":       ["⚠️ Ventil",   "—",            "⚠️ Ventil",    "❌ Larang",  "⚠️ APD"],
+            "☠️ T saja – Base\n(mis. NaOH dilute)":["⚠️ APD",      "⚠️ Ventil",   "—",            "❌ Larang",  "⚠️ APD"],
+            "💥 O – Base\n(mis. NaOCl)":           ["⚠️ Evaluasi", "❌ Larang",    "❌ Larang",    "—",          "❌ Larang"],
+            "🔥 F – Base\n(pelarut alkali)":        ["⚠️ Pisah",    "⚠️ APD",      "⚠️ APD",       "❌ Larang",  "—"],
+        }
+        df_b = pd.DataFrame(base_matrix).set_index("")
+        st.dataframe(df_b, use_container_width=True, height=250)
+
+        st.markdown("#### 📋 Contoh Bahan per Kategori Basa")
+        examples_base = [
+            ("🧪 C saja – Basa", "#4ecdc4", "NaOH, KOH, Ca(OH)₂ — basa kuat, sangat korosif. Dapat disimpan di zona basa tapi pisah dari asam."),
+            ("🧪+☠️ C+T – Basa", "#a29bfe", "Amonia (NH₃) — korosif + toksik + gas bertekanan. Uap sangat mengiritasi paru-paru."),
+            ("💥 O – Basa", "#ffe66d", "Natrium Hipoklorit (NaOCl) — oksidator + korosif. Bersifat basa (pH 11-12), melepas Cl₂ dengan asam."),
+            ("☠️ T – Basa", "#ef4444", "Senyawa basa toksik lain — perlu evaluasi individual."),
+        ]
+        for cat, color, desc in examples_base:
+            st.markdown(f"""<div style='background:rgba(26,34,54,0.8);border-left:3px solid {color};
+            border-radius:0 8px 8px 0;padding:8px 14px;margin:4px 0;font-size:0.83rem;'>
+            <b style='color:{color};'>{cat}</b><br><span style='color:#cbd5e1;'>{desc}</span></div>""",
+            unsafe_allow_html=True)
+
+    with tab_cross:
+        st.markdown("### 🔀 Matriks Silang: Asam vs Basa")
+        st.markdown("""
+        <div style='background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);
+        border-radius:12px;padding:1rem;margin-bottom:1rem;'>
+        <b style='color:#fca5a5;'>⚠️ Semua kombinasi Asam–Basa memerlukan pemisahan area penyimpanan!</b><br>
+        <span style='color:#e2e8f0;font-size:0.85rem;'>
+        Tabel ini menunjukkan <em>tingkat urgensi</em> pemisahan — MERAH bukan berarti boleh disimpan bersama,
+        melainkan mana yang lebih kritis untuk dipisahkan lebih jauh.
+        </span></div>""", unsafe_allow_html=True)
+        st.markdown(legend_html, unsafe_allow_html=True)
+
+        cross_matrix = {
+            "ASAM ↓ / BASA →":               ["🧪 C-Basa\n(NaOH,KOH)","🧪+☠️ C+T-Basa\n(NH₃)","💥 O-Basa\n(NaOCl)","☠️ T-Basa"],
+            "🔥 F-Asam\n(CH₃COOH)":          ["❌ Larang",             "❌ Larang",             "❌ KRITIS",          "❌ Larang"],
+            "🧪 C-Asam\n(H₃PO₄)":            ["❌ Larang",             "❌ Larang",             "❌ Larang",          "❌ Larang"],
+            "🧪+💥 C+O-Asam\n(HNO₃)":        ["❌ KRITIS",             "❌ KRITIS",             "❌ KRITIS",          "❌ KRITIS"],
+            "🧪+☠️ C+T-Asam\n(HCl, HF)":     ["❌ Larang",             "❌ KRITIS",             "❌ KRITIS",          "❌ Larang"],
+            "💥 O-Asam\n(H₂O₂)":             ["❌ Larang",             "❌ KRITIS",             "❌ Larang",          "❌ Larang"],
+        }
+        df_cross = pd.DataFrame(cross_matrix).set_index("ASAM ↓ / BASA →")
+        st.dataframe(df_cross, use_container_width=True, height=280)
+
+        st.markdown("""
+        <div class="theory-box">
+        <div class="theory-title">🎯 Kombinasi Paling Kritis (❌ KRITIS)</div>
+        <ul style='color:#c7d2fe;font-size:0.85rem;margin:0;padding-left:1.2rem;line-height:2;'>
+        <li><b>HNO₃ + NaOH</b> — Reaksi eksplosif, panas ekstrem, ada gas NO₂</li>
+        <li><b>HNO₃ + NH₃</b> — Dapat membentuk Ammonium Nitrat, bahan eksplosif</li>
+        <li><b>HCl + NaOCl</b> — Gas Cl₂ sangat toksik terbentuk</li>
+        <li><b>HF + NH₃</b> — Dua toksik kuat bertemu; reaksi eksotermik, uap berbahaya</li>
+        <li><b>H₂O₂ + NH₃</b> — Oksidator + basa; dapat membentuk hidroksamin yang tidak stabil</li>
+        </ul></div>""", unsafe_allow_html=True)
+
+        # Storage zone diagram
+        st.markdown("#### 🗺️ Tata Letak Zona Penyimpanan yang Direkomendasikan")
+        st.markdown("""
+        <div style='background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.2rem;'>
+        <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;'>
+
+          <div style='background:rgba(255,107,53,0.12);border:2px solid #ff6b35;border-radius:10px;padding:12px 8px;'>
+            <div style='font-size:1.4rem;'>🔥</div>
+            <div style='color:#ff6b35;font-weight:700;font-size:0.85rem;'>ZONA FLAMMABLE</div>
+            <div style='color:#94a3b8;font-size:0.75rem;margin-top:4px;'>Etanol, Aseton, Metanol,<br>Benzena, Toluena</div>
+            <div style='color:#64748b;font-size:0.7rem;margin-top:6px;'>Lemari tahan api<br>Grounding anti-statis</div>
+          </div>
+
+          <div style='background:rgba(78,205,196,0.12);border:2px solid #4ecdc4;border-radius:10px;padding:12px 8px;'>
+            <div style='font-size:1.4rem;'>🧪</div>
+            <div style='color:#4ecdc4;font-weight:700;font-size:0.85rem;'>ZONA ASAM</div>
+            <div style='color:#94a3b8;font-size:0.75rem;margin-top:4px;'>H₂SO₄, HCl, H₃PO₄<br>CH₃COOH, HF</div>
+            <div style='color:#64748b;font-size:0.7rem;margin-top:6px;'>Wadah HDPE/kaca<br>Tray penampung tumpahan</div>
+          </div>
+
+          <div style='background:rgba(78,205,196,0.08);border:2px solid #38bdf8;border-radius:10px;padding:12px 8px;'>
+            <div style='font-size:1.4rem;'>🧴</div>
+            <div style='color:#38bdf8;font-weight:700;font-size:0.85rem;'>ZONA BASA</div>
+            <div style='color:#94a3b8;font-size:0.75rem;margin-top:4px;'>NaOH, KOH, NH₃<br>Ca(OH)₂, NaOCl</div>
+            <div style='color:#64748b;font-size:0.7rem;margin-top:6px;'>Wadah HDPE<br>Pisah dari zona asam!</div>
+          </div>
+
+          <div style='background:rgba(255,230,109,0.12);border:2px solid #ffe66d;border-radius:10px;padding:12px 8px;'>
+            <div style='font-size:1.4rem;'>💥</div>
+            <div style='color:#ffe66d;font-weight:700;font-size:0.85rem;'>ZONA OKSIDATOR</div>
+            <div style='color:#94a3b8;font-size:0.75rem;margin-top:4px;'>KMnO₄, HNO₃, H₂O₂<br>K₂Cr₂O₇, NaOCl*</div>
+            <div style='color:#64748b;font-size:0.7rem;margin-top:6px;'>Jauh dari organik<br>Jauh dari flammable!</div>
+          </div>
+
+          <div style='background:rgba(162,155,254,0.12);border:2px solid #a29bfe;border-radius:10px;padding:12px 8px;'>
+            <div style='font-size:1.4rem;'>☠️</div>
+            <div style='color:#a29bfe;font-weight:700;font-size:0.85rem;'>ZONA TOKSIK</div>
+            <div style='color:#94a3b8;font-size:0.75rem;margin-top:4px;'>KCN, HF, NH₃<br>As₂O₃, Hg, HCl</div>
+            <div style='color:#64748b;font-size:0.7rem;margin-top:6px;'>Lemari terkunci<br>Ventilasi khusus</div>
+          </div>
+
+          <div style='background:rgba(148,163,184,0.08);border:2px dashed #475569;border-radius:10px;padding:12px 8px;'>
+            <div style='font-size:1.4rem;'>🧂</div>
+            <div style='color:#94a3b8;font-weight:700;font-size:0.85rem;'>ZONA INERT/UMUM</div>
+            <div style='color:#94a3b8;font-size:0.75rem;margin-top:4px;'>NaCl, NaHCO₃,<br>H₂O, CuSO₄</div>
+            <div style='color:#64748b;font-size:0.7rem;margin-top:6px;'>Rak umum<br>APD standar</div>
+          </div>
+
+        </div>
+        <div style='text-align:center;color:#475569;font-size:0.75rem;margin-top:10px;'>
+        * NaOCl masuk zona oksidator DAN basa — pilih zona oksidator, tandai jelas sebagai basa</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with tab_rules:
+        st.markdown("### 📏 Aturan & Prinsip Penyimpanan FCOT")
+
+        rules = [
+            ("🔥","Flammable (F)","#ff6b35",[
+                "Simpan dalam **flammable storage cabinet** berlabel GHS02",
+                "Jauhkan min. **3 meter** dari sumber panas, api, atau percikan listrik",
+                "Jumlah maksimum di luar kabinet: **10 liter** (di luar kabinet berlabel)",
+                "Grounding dan bonding untuk mencegah percikan elektrostatik",
+                "Ventilasi bawah untuk gas yang lebih berat dari udara",
+            ]),
+            ("🧪","Corrosive – Asam (C-Asam)","#4ecdc4",[
+                "Simpan **terpisah mutlak** dari semua basa",
+                "Wadah **HDPE** untuk asam kuat; **kaca borosilikat** untuk asam pekat non-HF",
+                "HF harus dalam **wadah polietilen khusus**, bukan kaca",
+                "Tray penampung tumpahan wajib di bawah semua wadah asam",
+                "Label jelas 'ASAM' dengan warna oranye/merah",
+            ]),
+            ("🧴","Corrosive – Basa (C-Basa)","#38bdf8",[
+                "Simpan **terpisah mutlak** dari semua asam — beda rak/lemari",
+                "NaOH/KOH padat: wadah **kedap udara** (higroskopis kuat)",
+                "Amonia cair: lemari ventilasi khusus, detektor NH₃",
+                "NaOCl: simpan jauh dari asam dan agen tereduksi",
+                "Label jelas 'BASA' dengan warna biru",
+            ]),
+            ("💥","Oxidizing (O)","#ffe66d",[
+                "Simpan **terpisah** dari semua bahan organik dan flammable",
+                "Jauhkan dari panas, friction, dan kontaminasi logam berat",
+                "KMnO₄ tidak boleh kontak bahan organik apapun",
+                "HNO₃ pekat: simpan sendiri atau hanya dengan oksidator lain",
+                "H₂O₂ >30%: wadah berventilasi (menghasilkan O₂ gas)",
+            ]),
+            ("☠️","Toxic (T)","#a29bfe",[
+                "Lemari **terkunci** untuk toksik akut tinggi (KCN, As₂O₃, Hg)",
+                "Ventilasi udara negatif (exhaust) wajib untuk toksik volatil",
+                "Logbook penerimaan dan pengeluaran wajib",
+                "Berpasangan 'buddy system' saat bekerja dengan toksik sangat tinggi",
+                "Kit antidot tersedia di dekat area penyimpanan (mis. Ca-glukonat untuk HF)",
+            ]),
+        ]
+
+        for icon, title, color, items in rules:
+            with st.expander(f"{icon} {title}", expanded=False):
+                st.markdown(f"<div style='border-left:3px solid {color};padding-left:12px;'>", unsafe_allow_html=True)
+                for item in items:
+                    st.markdown(f"• {item}")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 🔢 Pemisahan Minimum Antar Zona (Rekomendasi)")
+        sep_data = {
+            "Zona A": ["🔥 Flammable","🔥 Flammable","🧪 Asam","🔵 Basa","💥 Oksidator"],
+            "Zona B": ["🔵 Basa","💥 Oksidator","🔵 Basa","💥 Oksidator","🔥 Flammable"],
+            "Jarak Minimum": ["3 m / beda lemari","5 m / beda ruangan","Beda lemari WAJIB","3 m / beda lemari","5 m / beda ruangan"],
+            "Bahaya Jika Bercampur": ["Netralisasi → panas semburan","Kebakaran/ledakan","Panas semburan korosif","Cl₂/gas berbahaya","Kebakaran/ledakan"],
+        }
+        df_sep = pd.DataFrame(sep_data)
+        st.dataframe(df_sep, use_container_width=True, hide_index=True)
+
+        st.info("""
+**📌 Referensi Regulasi:**
+- **Permenaker No.5/2018** — Keselamatan dan Kesehatan Kerja Lingkungan Kerja
+- **PP 74/2001** — Pengelolaan Bahan Berbahaya dan Beracun (B3)
+- **NFPA 30** — Flammable and Combustible Liquids Code
+- **OSHA 29 CFR 1910.106** — Flammable Liquids Storage
+- **GHS Purple Book (UN)** — Rev.9, 2021
+        """)
 
 # ═══════════════════════════════════════════
 #  PAGE: DATABASE BAHAN
