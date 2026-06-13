@@ -2012,35 +2012,38 @@ elif menu == "🔬 Cek Kompatibilitas":
             st.markdown("### 📦 Rekomendasi Penyimpanan Per Bahan")
             col_s1, col_s2 = st.columns(2)
 
-            def render_storage_card(chem_name, chem_data, storage_classes):
-                name_short = chem_name.split('(')[0].strip()
-                lines = []
-                for sc in storage_classes:
-                    if sc in STORAGE_CABINET:
-                        cab_name, cab_color, cab_desc = STORAGE_CABINET[sc]
-                        lines.append(f"""
-                        <div style='margin-bottom:10px;'>
-                          <div style='font-weight:700;color:{cab_color};font-size:0.88rem;margin-bottom:4px;'>{cab_name}</div>
-                          <div style='color:#cbd5e1;font-size:0.82rem;line-height:1.5;'>{cab_desc}</div>
-                        </div>""")
-                cab_html = "".join(lines) if lines else "<div style='color:#8892a4'>Penyimpanan umum</div>"
-                return f"""
-                <div class="chem-card" style='border-left:3px solid #4ecdc4;'>
-                  <div class="chem-name" style='margin-bottom:8px;'>{name_short}</div>
-                  <div style='font-size:0.78rem;color:#8892a4;margin-bottom:8px;'>
-                    Kelas penyimpanan: <strong style='color:#e2e8f0'>{', '.join(storage_classes)}</strong>
-                  </div>
-                  {cab_html}
-                  <div style='margin-top:10px;padding-top:10px;border-top:1px solid #2a3650;'>
-                    <div style='font-size:0.78rem;font-weight:700;color:#8892a4;margin-bottom:4px;'>📋 Rekomendasi SDS</div>
-                    <div style='font-size:0.82rem;color:#cbd5e1;line-height:1.5;'>{chem_data.get('storage','—')}</div>
-                  </div>
-                </div>"""
-
-            with col_s1:
-                st.markdown(render_storage_card(chem1, ci1, sc1), unsafe_allow_html=True)
-            with col_s2:
-                st.markdown(render_storage_card(chem2, ci2, sc2), unsafe_allow_html=True)
+            for _col, _cname, _cdata, _sclass in [
+                (col_s1, chem1, ci1, sc1),
+                (col_s2, chem2, ci2, sc2),
+            ]:
+                _short = _cname.split('(')[0].strip()
+                _storage_val = _cdata.get('storage', '-')
+                _kelas = ', '.join(_sclass)
+                _cab = ""
+                for _sc in _sclass:
+                    if _sc in STORAGE_CABINET:
+                        _cn, _cc, _cd = STORAGE_CABINET[_sc]
+                        _cab += (
+                            "<div style='margin-bottom:10px;'>"
+                            "<div style='font-weight:700;font-size:0.88rem;margin-bottom:4px;color:" + _cc + ";'>" + _cn + "</div>"
+                            "<div style='color:#cbd5e1;font-size:0.82rem;line-height:1.5;'>" + _cd + "</div>"
+                            "</div>"
+                        )
+                if not _cab:
+                    _cab = "<div style='color:#8892a4;font-size:0.82rem;'>Penyimpanan umum</div>"
+                _html = (
+                    "<div class='chem-card' style='border-left:3px solid #4ecdc4;'>"
+                    "<div class='chem-name' style='margin-bottom:8px;'>" + _short + "</div>"
+                    "<div style='font-size:0.78rem;color:#8892a4;margin-bottom:10px;'>"
+                    "Kelas penyimpanan: <strong style='color:#e2e8f0'>" + _kelas + "</strong></div>"
+                    + _cab +
+                    "<div style='margin-top:10px;padding-top:10px;border-top:1px solid #2a3650;'>"
+                    "<div style='font-size:0.78rem;font-weight:700;color:#8892a4;margin-bottom:4px;'>&#128203; Rekomendasi SDS</div>"
+                    "<div style='font-size:0.82rem;color:#cbd5e1;line-height:1.5;'>" + _storage_val + "</div>"
+                    "</div></div>"
+                )
+                with _col:
+                    st.markdown(_html, unsafe_allow_html=True)
 
             # ════════════════════════════════════════
             # BLOK 4: ANALISIS RISIKO PENYIMPANAN FCOT
@@ -2113,20 +2116,17 @@ elif menu == "🔬 Cek Kompatibilitas":
                 ("🔍", "Inspeksi rutin kondisi wadah (kebocoran, korosi, label) minimal sebulan sekali", True),
             ]
 
-            checklist_html = ""
-            for icon, item, active in checklist_items:
-                if active:
-                    checklist_html += f"""
-                    <div style='display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(42,54,80,0.5);'>
-                      <span style='font-size:1.1rem;flex-shrink:0;'>{icon}</span>
-                      <span style='font-size:0.85rem;color:#e2e8f0;line-height:1.5;'>{item}</span>
-                    </div>"""
-
-            st.markdown(f"""
-            <div class="chem-card">
-              {checklist_html}
-            </div>
-            """, unsafe_allow_html=True)
+            checklist_parts = []
+            for _icon, _item, _active in checklist_items:
+                if bool(_active):
+                    checklist_parts.append(
+                        "<div style='display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(42,54,80,0.5);'>"
+                        "<span style='font-size:1.1rem;flex-shrink:0;'>" + _icon + "</span>"
+                        "<span style='font-size:0.85rem;color:#e2e8f0;line-height:1.5;'>" + _item + "</span>"
+                        "</div>"
+                    )
+            checklist_html = "<div class='chem-card'>" + "".join(checklist_parts) + "</div>"
+            st.markdown(checklist_html, unsafe_allow_html=True)
 
             # ════════════════════════════════════════
             # BLOK 6: DETAIL REAKSI KIMIA (kolapsibel)
