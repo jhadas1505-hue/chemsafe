@@ -540,7 +540,9 @@ GHS_INFO = {
 }
 
 # ─────────────────────────────────────────────
-#  DATABASE REAKSI SPESIFIK (dari app_3)
+#  DATABASE KOMPATIBILITAS PENYIMPANAN
+#  Fokus: apakah dua bahan AMAN DISIMPAN BERDEKATAN
+#  Ref: NFPA 49/430, OSHA 29 CFR 1910, COSHH, GHS Purple Book
 # ─────────────────────────────────────────────
 def _pair(a, b):
     return tuple(sorted([a, b]))
