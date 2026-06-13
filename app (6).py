@@ -14,8 +14,8 @@ from collections import defaultdict
 #  PAGE CONFIG
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="FCOT ChemSafe",
-    page_icon="⚗️",
+    page_title="ChemSafe",
+    page_icon="🧪",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -1730,8 +1730,9 @@ with st.sidebar:
     st.markdown(
         "<div style='text-align:center;padding:20px 0 8px;'>"
         "<span style='font-size:2.6rem;'>&#9878;&#65039;</span><br>"
-        "<span style='font-family:Syne,sans-serif;font-weight:800;font-size:1.25rem;background:linear-gradient(90deg,#4ecdc4,#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;'>FCOT ChemSafe</span><br>"
-        "<span style='color:#8892a4;font-size:0.75rem;'>Chemical Storage Safety v4</span>"
+        "<span style='font-family:Syne,sans-serif;font-weight:800;font-size:1.25rem;background:linear-gradient(90deg,#4ecdc4,#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;'>ChemSafe</span><br>"
+        "<span style='color:#8892a4;font-size:0.75rem;'>Politeknik AKA Bogor</span>"
+        "<span style='color:#8892a4;font-size:0.75rem;'>Kelompok 9</span>"
         "</div>"
         "<hr style='border-color:rgba(42,54,80,0.6);'>",
         unsafe_allow_html=True
@@ -1775,7 +1776,7 @@ with st.sidebar:
 # ─────────────────────────────────────────────
 st.markdown("""
 <div class="hero-banner">
-  <div class="hero-title">⚗️ FCOT ChemSafe</div>
+  <div class="hero-title">🧪 ChemSafe</div>
   <p class="hero-sub">Kompatibilitas Penyimpanan FCOT · Matrix Asam & Basa · Standar GHS Internasional</p>
 </div>
 """, unsafe_allow_html=True)
@@ -1802,7 +1803,7 @@ if menu == "🏠 Dashboard":
 
     st.markdown("""
     <div class="info-strip">
-    ⚗️ <strong>FCOT ChemSafe</strong> membantu teknisi K3, petugas laboratorium, dan mahasiswa untuk menentukan keamanan penyimpanan bahan kimia berdasarkan teori FCOT dan standar GHS internasional.
+    🧪 <strong>FCOT ChemSafe</strong> membantu teknisi K3, petugas laboratorium, dan mahasiswa untuk menentukan keamanan penyimpanan bahan kimia berdasarkan teori FCOT dan standar GHS internasional.
     </div>
     """, unsafe_allow_html=True)
 
@@ -2143,12 +2144,12 @@ elif menu == "🔬 Cek Kompatibilitas":
             # BLOK 6: DETAIL REAKSI KIMIA (kolapsibel)
             # ════════════════════════════════════════
             st.markdown("---")
-            with st.expander("⚗️ Detail Reaksi Kimia (jika dicampurkan) — Klik untuk buka"):
+            with st.expander("🧪 Detail Reaksi Kimia (jika dicampurkan) — Klik untuk buka"):
                 st.caption("ℹ️ Informasi ini menggambarkan apa yang terjadi jika bahan DICAMPURKAN secara langsung — berbeda dari risiko penyimpanan di atas.")
                 if result is not None:
                     col_r1, col_r2 = st.columns(2)
                     with col_r1:
-                        st.markdown("**⚗️ Persamaan Reaksi:**")
+                        st.markdown("**🧪 Persamaan Reaksi:**")
                         st.code(result.get("reaction","—"), language=None)
                         st.markdown("**🏭 Produk yang Terbentuk:**")
                         for p in result.get("products",[]):
@@ -2403,7 +2404,7 @@ elif menu == "🗺️ Matrix Penyimpanan":
         with col_a1:
             st.markdown("""
             <div class="theory-box">
-            <div class="theory-title">⚗️ Sub-Tipe Asam & Penyimpanan</div>
+            <div class="theory-title">🧪 Sub-Tipe Asam & Penyimpanan</div>
             <table style='width:100%;font-size:0.8rem;color:#c7d2fe;border-collapse:collapse;'>
               <tr><th style='text-align:left;padding:4px;color:#a5b4fc;'>Asam</th><th style='padding:4px;color:#a5b4fc;'>Sifat</th><th style='padding:4px;color:#a5b4fc;'>Lemari</th></tr>
               <tr><td style='padding:4px;'>H₂SO₄, HNO₃</td><td style='padding:4px;text-align:center;'><span style='color:#ffe66d;'>C+O</span></td><td style='padding:4px;'>Acid + pisahkan dari asam biasa</td></tr>
