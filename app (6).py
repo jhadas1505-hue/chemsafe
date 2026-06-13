@@ -3019,7 +3019,7 @@ _footer = (
         "<div style='display:flex;flex-wrap:wrap;gap:32px;justify-content:space-between;align-items:flex-start;'>"
 
             "<div style='flex:1;min-width:200px;'>"
-                "<div style='font-family:Syne,sans-serif;font-weight:800;font-size:1.1rem;background:linear-gradient(90deg,#4ecdc4,#a29bfe,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;'>&#9878;&#65039; FCOT ChemSafe v4</div>"
+                "<div style='font-family:Syne,sans-serif;font-weight:800;font-size:1.1rem;background:linear-gradient(90deg,#4ecdc4,#a29bfe,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;'>&#9878;&#65039; ChemSafe Kelompok 9 </div>"
                 "<div style='color:#475569;font-size:0.78rem;line-height:1.9;'>"
                     "Kompatibilitas Penyimpanan FCOT<br>"
                     "Matrix Asam-Basa &nbsp;&middot;&nbsp; Standar GHS<br>"
@@ -3034,7 +3034,7 @@ _footer = (
 
         "</div>"
         "<div style='border-top:1px solid #1e293b;margin-top:20px;padding-top:14px;text-align:center;color:#334155;font-size:0.72rem;'>"
-            "Dibuat untuk keperluan pendidikan K3 Kimia &nbsp;&middot;&nbsp; Referensi: PubChem &middot; NIOSH &middot; GHS UN &middot; Permenaker 5/2018"
+            "Dibuat untuk keperluan pendidikan Latihan Pemrograman Komputer &nbsp;&middot;&nbsp; Referensi: PubChem &middot; NIOSH &middot; GHS UN &middot; Permenaker 5/2018"
         "</div>"
     "</div>"
 )
