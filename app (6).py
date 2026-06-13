@@ -782,15 +782,40 @@ def heuristic_compat(chem1, chem2):
     ci2 = CHEMICALS.get(chem2) or st.session_state.custom_chemicals.get(chem2, {})
     fcot1 = set(ci1.get("fcot",[]))
     fcot2 = set(ci2.get("fcot",[]))
+    g1 = ci1.get("group","")
+    g2 = ci2.get("group","")
     all_f = fcot1 | fcot2
-    if "F" in all_f and "O" in all_f:
-        return "DANGER", "Satu bahan Flammable (F) dan satu Oxidator (O) – kombinasi ini berpotensi menyebabkan kebakaran atau ledakan."
-    elif "C" in all_f and len(all_f) >= 2:
-        return "CAUTION", "Setidaknya satu bahan bersifat Korosif. Perlu penanganan hati-hati."
-    elif "T" in all_f:
-        return "CAUTION", "Setidaknya satu bahan bersifat Toksik. Perlu APD dan ventilasi memadai."
-    else:
-        return "SAFE", "Tidak ada kombinasi FCOT kritis yang terdeteksi. Kemungkinan aman, namun data spesifik belum tersedia."
+
+    # Storage-based logic (sifat bahan, bukan reaksi)
+    # F + O: tidak boleh satu ruangan (kebakaran/ledakan jika ada kebocoran)
+    if "F" in fcot1 and "O" in fcot2 or "F" in fcot2 and "O" in fcot1:
+        return "DANGER", "⚠️ Flammable & Oksidator tidak boleh disimpan berdekatan. Jika terjadi kebocoran, uap flammable + oksidator dapat memicu kebakaran/ledakan spontan tanpa sumber api eksternal."
+    # Asam + Basa: tidak boleh satu lemari
+    is_acid1 = g1 == "Asam" or "asam" in ci1.get("class","").lower()
+    is_acid2 = g2 == "Asam" or "asam" in ci2.get("class","").lower()
+    is_base1 = g1 == "Basa" or "basa" in ci1.get("class","").lower()
+    is_base2 = g2 == "Basa" or "basa" in ci2.get("class","").lower()
+    if (is_acid1 and is_base2) or (is_acid2 and is_base1):
+        return "DANGER", "⚠️ Asam & Basa tidak boleh disimpan dalam satu lemari. Kebocoran dapat menyebabkan reaksi netralisasi eksotermik dan semburan cairan korosif."
+    # Basa + O
+    if ("O" in fcot1 and is_base2) or ("O" in fcot2 and is_base1):
+        return "DANGER", "⚠️ Oksidator & Basa Kuat tidak boleh disimpan berdekatan. Dapat mempercepat dekomposisi oksidator dan melepas O₂ serta panas."
+    # C + C (both corrosive but different acid/base) — caught above
+    # F + C-Asam: perlu hati-hati
+    if "F" in all_f and "C" in all_f:
+        if is_acid1 or is_acid2:
+            return "CAUTION", "Flammable + Asam Korosif perlu jarak penyimpanan. Asam dapat merusak wadah logam bahan flammable, memicu kebocoran uap yang mudah terbakar."
+    # T in combination
+    if "T" in all_f and ("C" in all_f or "O" in all_f):
+        # KCN + Asam is a special case for DANGER
+        if ("KCN" in chem1 or "KCN" in chem2 or "Sianida" in chem1 or "Sianida" in chem2) and (is_acid1 or is_acid2):
+            return "DANGER", "🚨 KRITIS: Sianida + Asam menghasilkan gas HCN yang mematikan. Harus disimpan terpisah ruangan."
+        return "CAUTION", "Toksik berdekatan dengan korosif/oksidator memerlukan evaluasi SDS. Pastikan wadah bebas kebocoran dan ventilasi memadai."
+    if "T" in all_f:
+        return "CAUTION", "Bahan toksik harus disimpan di lemari terkunci (poison cabinet). Pastikan tidak berdekatan dengan bahan yang dapat membebaskan gas toksiknya."
+    if "C" in all_f:
+        return "CAUTION", "Setidaknya satu bahan bersifat korosif. Gunakan secondary containment (baki), pastikan lemari tahan korosi, dan APD lengkap saat penanganan."
+    return "SAFE", "Tidak ada kombinasi FCOT kritis untuk penyimpanan yang terdeteksi. Tetap gunakan wadah yang tepat dan patuhi SDS masing-masing bahan."
 
 def add_to_history(chem1, chem2, status):
     entry = {"chem1":chem1,"chem2":chem2,"status":status,
@@ -830,7 +855,7 @@ with st.sidebar:
     st.markdown('<div class="nav-label">Menu Utama</div>', unsafe_allow_html=True)
     menu = st.radio(
         "Pilih Halaman",
-        ["🏠 Dashboard","🔬 Cek Kompatibilitas","📚 Database Bahan","📖 Materi FCOT","⭐ Favorit","🕐 Riwayat","📋 Panduan"],
+        ["🏠 Dashboard","🔬 Cek Kompatibilitas","🗺️ Matrix Penyimpanan","📚 Database Bahan","📖 Materi FCOT","⭐ Favorit","🕐 Riwayat","📋 Panduan"],
         label_visibility="collapsed"
     )
 
@@ -852,7 +877,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero-banner">
   <div class="hero-title">⚗️ FCOT ChemSafe</div>
-  <p class="hero-sub">Chemical Compatibility Checker · Teori FCOT · Standar GHS Internasional</p>
+  <p class="hero-sub">Kompatibilitas Penyimpanan FCOT · Matrix Asam & Basa · Standar GHS Internasional</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -901,19 +926,66 @@ if menu == "🏠 Dashboard":
             st.markdown(f"<div style='color:#8892a4;font-size:0.82rem;text-align:center;'>… dan {len(filtered)-8} bahan lainnya di Database</div>", unsafe_allow_html=True)
 
     with col_b:
-        st.markdown("### 📋 Matriks Kompatibilitas FCOT")
-        matrix_data = {
-            "":           ["🔥 F","🧪 C","💥 O","☠️ T"],
-            "🔥 Flammable": ["—",  "✅",  "❌",  "⚠️"],
-            "🧪 Corrosive": ["✅", "—",   "❌",  "⚠️"],
-            "💥 Oxidizing": ["❌", "❌",  "—",   "✅"],
-            "☠️ Toxic":     ["⚠️", "⚠️",  "✅",  "—"],
-        }
-        df = pd.DataFrame(matrix_data).set_index("")
-        st.dataframe(df, use_container_width=True)
+        st.markdown("### 📋 Matriks Kompatibilitas FCOT (Penyimpanan)")
         st.markdown("""
-        <div style='font-size:0.82rem;color:#8892a4;margin-top:8px;'>
-        ✅ Dapat disimpan berdekatan &nbsp;|&nbsp; ❌ Harus terpisah &nbsp;|&nbsp; ⚠️ Evaluasi kasus per kasus
+        <div style='overflow-x:auto;'>
+        <table style='width:100%;border-collapse:collapse;font-size:0.82rem;font-family:Space Mono,monospace;'>
+          <thead>
+            <tr>
+              <th style='background:#1a2236;padding:10px 8px;border:1px solid #2a3650;color:#8892a4;'>Sifat</th>
+              <th style='background:#1a2236;padding:10px 8px;border:1px solid #2a3650;color:#ff6b35;'>🔥 F</th>
+              <th style='background:#1a2236;padding:10px 8px;border:1px solid #2a3650;color:#4ecdc4;'>🧪 C-Asam</th>
+              <th style='background:#1a2236;padding:10px 8px;border:1px solid #2a3650;color:#4ecdc4;'>🧪 C-Basa</th>
+              <th style='background:#1a2236;padding:10px 8px;border:1px solid #2a3650;color:#ffe66d;'>💥 O</th>
+              <th style='background:#1a2236;padding:10px 8px;border:1px solid #2a3650;color:#a29bfe;'>☠️ T</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style='background:#1a2236;padding:8px;border:1px solid #2a3650;color:#ff6b35;font-weight:700;'>🔥 Flammable</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+              <td style='background:rgba(239,68,68,0.2);padding:8px;border:1px solid #2a3650;text-align:center;color:#ef4444;'>❌</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+            </tr>
+            <tr>
+              <td style='background:#1a2236;padding:8px;border:1px solid #2a3650;color:#4ecdc4;font-weight:700;'>🧪 Asam</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+              <td style='background:rgba(239,68,68,0.2);padding:8px;border:1px solid #2a3650;text-align:center;color:#ef4444;'>❌</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+            </tr>
+            <tr>
+              <td style='background:#1a2236;padding:8px;border:1px solid #2a3650;color:#4ecdc4;font-weight:700;'>🧪 Basa</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+              <td style='background:rgba(239,68,68,0.2);padding:8px;border:1px solid #2a3650;text-align:center;color:#ef4444;'>❌</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+              <td style='background:rgba(239,68,68,0.2);padding:8px;border:1px solid #2a3650;text-align:center;color:#ef4444;'>❌</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+            </tr>
+            <tr>
+              <td style='background:#1a2236;padding:8px;border:1px solid #2a3650;color:#ffe66d;font-weight:700;'>💥 Oxidator</td>
+              <td style='background:rgba(239,68,68,0.2);padding:8px;border:1px solid #2a3650;text-align:center;color:#ef4444;'>❌</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(239,68,68,0.2);padding:8px;border:1px solid #2a3650;text-align:center;color:#ef4444;'>❌</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+            </tr>
+            <tr>
+              <td style='background:#1a2236;padding:8px;border:1px solid #2a3650;color:#a29bfe;font-weight:700;'>☠️ Toxic</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(245,158,11,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#f59e0b;'>⚠️</td>
+              <td style='background:rgba(34,197,94,0.15);padding:8px;border:1px solid #2a3650;text-align:center;color:#22c55e;'>✅</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <div style='font-size:0.78rem;color:#8892a4;margin-top:8px;'>
+        ✅ Aman disimpan berdekatan &nbsp;|&nbsp; ❌ Harus terpisah (risiko kebakaran/gas toksik) &nbsp;|&nbsp; ⚠️ Perlu evaluasi & jarak aman
         </div>
         """, unsafe_allow_html=True)
 
@@ -924,8 +996,8 @@ if menu == "🏠 Dashboard":
                 st.session_state["_nav"] = "🔬 Cek Kompatibilitas"
                 st.rerun()
         with c2:
-            if st.button("📚 Database Bahan", use_container_width=True):
-                st.session_state["_nav"] = "📚 Database Bahan"
+            if st.button("🗺️ Matrix Penyimpanan", use_container_width=True):
+                st.session_state["_nav"] = "🗺️ Matrix Penyimpanan"
                 st.rerun()
 
 # ═══════════════════════════════════════════
@@ -935,7 +1007,7 @@ elif menu == "🔬 Cek Kompatibilitas":
     st.markdown("## 🔬 Cek Kompatibilitas Penyimpanan")
     st.markdown("""
     <div class="info-strip">
-      Pilih <strong>dua bahan kimia</strong> untuk mengecek apakah aman, berbahaya, atau perlu berhati-hati saat disimpan/digunakan bersama.
+      Pilih <strong>dua bahan kimia</strong> untuk mengecek apakah aman, harus berhati-hati, atau berbahaya saat <strong>disimpan berdekatan</strong> (berdasarkan sifat FCOT — bukan hasil reaksi kimia). Untuk detail reaksi, lihat hasil di bawah.
     </div>
     """, unsafe_allow_html=True)
 
@@ -1133,6 +1205,469 @@ elif menu == "🔬 Cek Kompatibilitas":
                 st.rerun()
             else:
                 st.error("Nama dan rumus kimia wajib diisi.")
+
+# ═══════════════════════════════════════════
+#  PAGE: MATRIX PENYIMPANAN
+# ═══════════════════════════════════════════
+elif menu == "🗺️ Matrix Penyimpanan":
+    st.markdown("## 🗺️ Matrix Kompatibilitas Penyimpanan FCOT")
+    st.markdown("""
+    <div class="info-strip">
+    📦 Matrix ini menunjukkan <strong>kompatibilitas penyimpanan</strong> bahan kimia berdasarkan sifat FCOT (Flammable, Corrosive, Oxidizing, Toxic).
+    Penilaian berdasarkan <strong>risiko kebocoran, penguapan, dan kontak tidak sengaja saat penyimpanan</strong> — bukan reaksi langsung.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── STORAGE COMPATIBILITY MATRIX DATA ──
+    # Rows = bahan yang disimpan, Cols = bahan yang berdekatan
+    # Asam dan Basa dipisah karena risikonya berbeda
+    # Status: SAFE / CAUTION / DANGER
+    # Basis: NFPA 49, OSHA 29 CFR 1910.106, COSHH UK, standar OSHA Storage
+
+    STORAGE_RULES = {
+        # (sifat_bahan, sifat_tetangga): (status, alasan_singkat)
+        ("F","F"):   ("SAFE",   "Sesama flammable boleh satu lemari tahan api khusus flammable cabinet"),
+        ("F","C-A"): ("CAUTION","Asam korosif dapat merusak wadah logam flammable → risiko kebocoran uap mudah terbakar"),
+        ("F","C-B"): ("SAFE",   "Basa korosif tidak memicu ignitasi langsung; pisahkan secara fisik dalam lemari yang sama"),
+        ("F","O"):   ("DANGER", "Oksidator + flammable = risiko kebakaran/ledakan spontan jika ada kebocoran uap"),
+        ("F","T"):   ("CAUTION","Toxic dapat meningkatkan risiko paparan saat kebocoran uap flammable; butuh ventilasi ekstra"),
+        ("C-A","F"): ("CAUTION","Uap asam + uap pelarut mudah terbakar di ruang tertutup berpotensi menghasilkan campuran berbahaya"),
+        ("C-A","C-A"):("SAFE",  "Sesama asam korosif boleh disimpan satu lemari (acid cabinet); pisahkan asam oksidatif dan non-oksidatif"),
+        ("C-A","C-B"):("DANGER","Asam + basa kuat → jika terjadi kebocoran, netralisasi eksotermik kuat, semburan korosif, gas toksik"),
+        ("C-A","O"):  ("CAUTION","Asam oksidatif (HNO₃) pisahkan dari asam biasa; asam non-oksidatif + oksidator solid perlu jarak"),
+        ("C-A","T"):  ("CAUTION","Beberapa asam dapat membebaskan gas toksik dari senyawa toksik padat (mis. KCN + asam → HCN)"),
+        ("C-B","F"):  ("SAFE",   "Basa kuat tidak memicu kebakaran; simpan terpisah secara fisik dari flammable cabinet"),
+        ("C-B","C-A"):("DANGER","Basa + asam kuat → reaksi netralisasi eksotermik hebat jika tumpah bersama"),
+        ("C-B","C-B"):("SAFE",  "Sesama basa korosif aman satu lemari (alkali cabinet); hindari campuran dengan logam aktif"),
+        ("C-B","O"):  ("DANGER","Basa kuat + oksidator kuat (mis. NaOH + NaOCl pekat) dapat melepas gas O₂ dan panas"),
+        ("C-B","T"):  ("CAUTION","Basa dapat menguraikan beberapa senyawa toksik; ventilasi baik, monitor secara berkala"),
+        ("O","F"):    ("DANGER","KRITIS: Oksidator tidak boleh satu ruangan dengan flammable; risiko kebakaran/ledakan"),
+        ("O","C-A"):  ("CAUTION","Asam oksidatif satu kategori dengan oksidator solid; pisahkan oksidator pekat dari asam biasa"),
+        ("O","C-B"):  ("DANGER","Oksidator kuat + basa kuat → dekomposisi oksidator dipercepat, pelepasan O₂, panas"),
+        ("O","O"):    ("CAUTION","Sesama oksidator umumnya aman, tapi pisahkan oksidator organik dari anorganik"),
+        ("O","T"):    ("CAUTION","Oksidator dapat mengoksidasi senyawa toksik menghasilkan produk lebih berbahaya; evaluasi SDS"),
+        ("T","F"):    ("CAUTION","Toxic mudah terbakar (mis. benzena, metanol) simpan di flammable cabinet; label ganda F+T"),
+        ("T","C-A"):  ("CAUTION","Asam dapat bereaksi dengan beberapa toksik (mis. sianida → HCN); WAJIB pisahkan sianida dari asam"),
+        ("T","C-B"):  ("CAUTION","Basa dapat menguraikan beberapa toksik; pantau stabilitas produk toksik"),
+        ("T","O"):    ("CAUTION","Oksidator + toksik organik dapat membentuk produk toksik baru; evaluasi SDS"),
+        ("T","T"):    ("SAFE",   "Sesama toksik aman satu lemari terkunci (poison cabinet); pisahkan berdasarkan rute paparan"),
+    }
+
+    # Tambahkan data sub-kelompok asam ke setiap bahan
+    def get_storage_class(name, data):
+        """Tentukan kelas penyimpanan bahan berdasarkan FCOT dan group."""
+        fcot = set(data.get("fcot", []))
+        group = data.get("group", "")
+        classes = []
+        if "F" in fcot:
+            classes.append("F")
+        if "C" in fcot:
+            if group == "Asam" or "asam" in data.get("class","").lower():
+                classes.append("C-A")
+            elif group == "Basa" or "basa" in data.get("class","").lower():
+                classes.append("C-B")
+            else:
+                # Default: cek pH
+                ph_str = data.get("ph","7")
+                try:
+                    ph_val = float(ph_str.replace("<","").replace(">","").strip().split("(")[0].strip())
+                    classes.append("C-A" if ph_val < 7 else "C-B")
+                except:
+                    classes.append("C-A")  # default asam jika tidak jelas
+        if "O" in fcot:
+            classes.append("O")
+        if "T" in fcot:
+            classes.append("T")
+        return classes if classes else ["NETRAL"]
+
+    def storage_compat(classes1, classes2):
+        """Cek kompatibilitas penyimpanan dua bahan berdasarkan kelas FCOT-storage."""
+        if not classes1 or not classes2 or classes1==["NETRAL"] or classes2==["NETRAL"]:
+            return "SAFE", "Bahan inert/netral aman disimpan bersama hampir semua bahan."
+        worst = "SAFE"
+        reason = ""
+        for c1 in classes1:
+            for c2 in classes2:
+                rule = STORAGE_RULES.get((c1, c2))
+                if rule:
+                    s, r = rule
+                    if s == "DANGER":
+                        worst = "DANGER"
+                        reason = r
+                    elif s == "CAUTION" and worst != "DANGER":
+                        worst = "CAUTION"
+                        reason = r
+                    elif s == "SAFE" and worst == "SAFE" and not reason:
+                        reason = r
+        if not reason:
+            reason = "Tidak ada aturan spesifik; konsultasikan SDS."
+        return worst, reason
+
+    # ── TAB UTAMA ──
+    tab_matrix, tab_asam, tab_basa, tab_panduan_simpan = st.tabs([
+        "📊 Matrix FCOT Lengkap",
+        "🧪 Matrix Asam",
+        "🔵 Matrix Basa",
+        "📖 Panduan Penyimpanan"
+    ])
+
+    # Helper warna cell
+    def cell_style(status):
+        if status == "DANGER":
+            return "background:rgba(239,68,68,0.25);color:#fca5a5;font-weight:700;"
+        elif status == "CAUTION":
+            return "background:rgba(245,158,11,0.2);color:#fde68a;font-weight:600;"
+        else:
+            return "background:rgba(34,197,94,0.15);color:#86efac;"
+
+    def cell_icon(status):
+        return {"DANGER":"❌","CAUTION":"⚠️","SAFE":"✅"}.get(status,"—")
+
+    with tab_matrix:
+        st.markdown("### 📊 Matrix Kompatibilitas Penyimpanan FCOT (Asam & Basa Dipisah)")
+        st.markdown("""
+        <div style='font-size:0.82rem;color:#8892a4;margin-bottom:12px;'>
+        Baris = bahan yang akan disimpan &nbsp;|&nbsp; Kolom = bahan tetangga di rak/lemari yang sama.<br>
+        <strong style='color:#4ecdc4'>C-A = Corrosive Asam</strong> &nbsp;|&nbsp; <strong style='color:#4ecdc4'>C-B = Corrosive Basa</strong>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 6 kategori: F, C-A, C-B, O, T, NETRAL
+        cats = [("F","🔥 Flammable","#ff6b35"),("C-A","🧪 Asam Korosif","#4ecdc4"),
+                ("C-B","🔵 Basa Korosif","#38bdf8"),("O","💥 Oksidator","#ffe66d"),
+                ("T","☠️ Toksik","#a29bfe"),("NETRAL","⚪ Inert/Netral","#8892a4")]
+
+        # Build header
+        header_cells = "<th style='background:#111827;padding:10px 6px;border:1px solid #2a3650;color:#8892a4;min-width:90px;font-size:0.75rem;'>Simpan ↓ / Dekat →</th>"
+        for code, label, color in cats:
+            header_cells += f"<th style='background:#111827;padding:8px 4px;border:1px solid #2a3650;color:{color};font-size:0.72rem;text-align:center;min-width:90px;'>{label}</th>"
+
+        rows_html = ""
+        for row_code, row_label, row_color in cats:
+            row_html = f"<td style='background:#1a2236;padding:8px 10px;border:1px solid #2a3650;color:{row_color};font-weight:700;font-size:0.75rem;white-space:nowrap;'>{row_label}</td>"
+            for col_code, col_label, col_color in cats:
+                if row_code == col_code:
+                    # Same category diagonal
+                    s, r = storage_compat([row_code], [col_code])
+                else:
+                    s, r = storage_compat([row_code], [col_code])
+                row_html += f"<td style='{cell_style(s)}padding:8px 4px;border:1px solid #2a3650;text-align:center;font-size:1rem;' title='{r}'>{cell_icon(s)}</td>"
+            rows_html += f"<tr>{row_html}</tr>"
+
+        st.markdown(f"""
+        <div style='overflow-x:auto;margin:8px 0;'>
+        <table style='border-collapse:collapse;width:100%;'>
+          <thead><tr>{header_cells}</tr></thead>
+          <tbody>{rows_html}</tbody>
+        </table>
+        </div>
+        <div style='font-size:0.8rem;color:#8892a4;margin-top:10px;display:flex;gap:20px;flex-wrap:wrap;'>
+          <span>❌ <span style='color:#ef4444'>BAHAYA</span> – Harus terpisah ruangan/lemari berbeda</span>
+          <span>⚠️ <span style='color:#f59e0b'>HATI-HATI</span> – Jarak aman, monitor, SDS wajib diperiksa</span>
+          <span>✅ <span style='color:#22c55e'>AMAN</span> – Dapat satu lemari khusus golongannya</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Penjelasan aturan utama
+        st.markdown("---")
+        st.markdown("### 🔑 Aturan Pemisahan Penyimpanan Utama")
+        rules_cols = st.columns(3)
+        with rules_cols[0]:
+            st.markdown("""
+            <div class="result-danger" style='padding:1rem;'>
+            <div style='font-weight:700;color:#fca5a5;margin-bottom:8px;'>❌ WAJIB TERPISAH</div>
+            <ul style='color:#e2e8f0;font-size:0.82rem;margin:0;padding-left:16px;line-height:2;'>
+              <li>Flammable ↔ Oksidator</li>
+              <li>Asam Kuat ↔ Basa Kuat</li>
+              <li>Basa Kuat ↔ Oksidator</li>
+              <li>Sianida/KCN ↔ Asam apapun</li>
+              <li>HF ↔ Basa kuat (tanpa SOP)</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        with rules_cols[1]:
+            st.markdown("""
+            <div class="result-warning" style='padding:1rem;'>
+            <div style='font-weight:700;color:#fde68a;margin-bottom:8px;'>⚠️ PERLU EVALUASI</div>
+            <ul style='color:#e2e8f0;font-size:0.82rem;margin:0;padding-left:16px;line-height:2;'>
+              <li>Flammable ↔ Asam Korosif</li>
+              <li>Oksidator ↔ Asam Korosif</li>
+              <li>Toksik ↔ semua golongan</li>
+              <li>Oksidator organik ↔ anorganik</li>
+              <li>Flammable+Toksik (label ganda)</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        with rules_cols[2]:
+            st.markdown("""
+            <div class="result-safe" style='padding:1rem;'>
+            <div style='font-weight:700;color:#86efac;margin-bottom:8px;'>✅ SATU LEMARI (khusus)</div>
+            <ul style='color:#e2e8f0;font-size:0.82rem;margin:0;padding-left:16px;line-height:2;'>
+              <li>Sesama Flammable → <em>flammable cabinet</em></li>
+              <li>Sesama Asam → <em>acid cabinet</em></li>
+              <li>Sesama Basa → <em>alkali cabinet</em></li>
+              <li>Sesama Toksik → <em>poison cabinet</em> (kunci)</li>
+              <li>Inert/Netral ↔ hampir semua</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with tab_asam:
+        st.markdown("### 🧪 Matrix Penyimpanan: Fokus Bahan ASAM")
+        st.markdown("""
+        <div class="info-strip">Asam dipisahkan menjadi dua sub-tipe: <strong>Asam Oksidatif</strong> (HNO₃, H₂SO₄ pekat) yang memiliki sifat O sekaligus C, dan <strong>Asam Non-Oksidatif</strong> (HCl, H₃PO₄). Keduanya tetap tidak boleh disimpan bersama Basa Kuat.</div>
+        """, unsafe_allow_html=True)
+
+        all_acids = {n: d for n, d in CHEMICALS.items() if d.get("group") == "Asam"}
+        all_bases = {n: d for n, d in CHEMICALS.items() if d.get("group") == "Basa"}
+        all_oxid  = {n: d for n, d in CHEMICALS.items() if d.get("group") == "Oksidator"}
+        all_solv  = {n: d for n, d in CHEMICALS.items() if d.get("group") == "Pelarut" and "F" in d.get("fcot",[])}
+
+        acid_names = list(all_acids.keys())
+        compare_groups = [
+            ("🧪 Asam Lain", acid_names),
+            ("🔵 Basa Kuat/Sedang", list(all_bases.keys())),
+            ("💥 Oksidator", list(all_oxid.keys())),
+            ("🔥 Flammable Pelarut", list(all_solv.keys())[:5]),
+        ]
+
+        # Build matrix header
+        col_labels_flat = []
+        for grp_label, grp_names in compare_groups:
+            for n in grp_names:
+                col_labels_flat.append((grp_label, n))
+
+        header_html = "<th style='background:#111827;padding:8px 6px;border:1px solid #2a3650;color:#8892a4;font-size:0.72rem;min-width:80px;'>Asam ↓ / Simpan dekat →</th>"
+        prev_grp = None
+        for grp, n in col_labels_flat:
+            grp_color = {"🧪 Asam Lain":"#4ecdc4","🔵 Basa Kuat/Sedang":"#38bdf8","💥 Oksidator":"#ffe66d","🔥 Flammable Pelarut":"#ff6b35"}.get(grp,"#8892a4")
+            short = n.split("(")[0].strip()[:14]
+            border_left = "border-left:3px solid " + grp_color + ";" if grp != prev_grp else ""
+            header_html += f"<th style='background:#111827;padding:6px 4px;border:1px solid #2a3650;{border_left}color:{grp_color};font-size:0.68rem;text-align:center;'>{short}</th>"
+            prev_grp = grp
+
+        rows_html_acid = ""
+        for acid_name, acid_data in all_acids.items():
+            acid_classes = get_storage_class(acid_name, acid_data)
+            short_row = acid_name.split("(")[0].strip()
+            row_html = f"<td style='background:#1a2236;padding:6px 10px;border:1px solid #2a3650;color:#4ecdc4;font-size:0.75rem;white-space:nowrap;font-weight:600;'>{short_row}</td>"
+            prev_grp = None
+            for grp, col_name in col_labels_flat:
+                grp_color = {"🧪 Asam Lain":"#4ecdc4","🔵 Basa Kuat/Sedang":"#38bdf8","💥 Oksidator":"#ffe66d","🔥 Flammable Pelarut":"#ff6b35"}.get(grp,"#8892a4")
+                border_left = "border-left:3px solid " + grp_color + "50;" if grp != prev_grp else ""
+                if col_name == acid_name:
+                    row_html += f"<td style='background:#111827;padding:6px 4px;border:1px solid #2a3650;{border_left}text-align:center;color:#475569;font-size:0.85rem;'>—</td>"
+                else:
+                    col_data = CHEMICALS.get(col_name, {})
+                    col_classes = get_storage_class(col_name, col_data)
+                    s, r = storage_compat(acid_classes, col_classes)
+                    row_html += f"<td style='{cell_style(s)}{border_left}padding:6px 4px;border:1px solid #2a3650;text-align:center;font-size:0.9rem;' title='{r}'>{cell_icon(s)}</td>"
+                prev_grp = grp
+            rows_html_acid += f"<tr>{row_html}</tr>"
+
+        st.markdown(f"""
+        <div style='overflow-x:auto;margin:8px 0;'>
+        <table style='border-collapse:collapse;width:100%;'>
+          <thead><tr>{header_html}</tr></thead>
+          <tbody>{rows_html_acid}</tbody>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Aturan khusus asam
+        st.markdown("---")
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            st.markdown("""
+            <div class="theory-box">
+            <div class="theory-title">⚗️ Sub-Tipe Asam & Penyimpanan</div>
+            <table style='width:100%;font-size:0.8rem;color:#c7d2fe;border-collapse:collapse;'>
+              <tr><th style='text-align:left;padding:4px;color:#a5b4fc;'>Asam</th><th style='padding:4px;color:#a5b4fc;'>Sifat</th><th style='padding:4px;color:#a5b4fc;'>Lemari</th></tr>
+              <tr><td style='padding:4px;'>H₂SO₄, HNO₃</td><td style='padding:4px;text-align:center;'><span style='color:#ffe66d;'>C+O</span></td><td style='padding:4px;'>Acid + pisahkan dari asam biasa</td></tr>
+              <tr><td style='padding:4px;'>HCl, H₃PO₄</td><td style='padding:4px;text-align:center;'><span style='color:#4ecdc4;'>C</span></td><td style='padding:4px;'>Acid cabinet standard</td></tr>
+              <tr><td style='padding:4px;'>CH₃COOH</td><td style='padding:4px;text-align:center;'><span style='color:#ff6b35;'>F</span>+<span style='color:#4ecdc4;'>C</span></td><td style='padding:4px;'>Flammable acid cabinet</td></tr>
+              <tr><td style='padding:4px;'>HF</td><td style='padding:4px;text-align:center;'><span style='color:#4ecdc4;'>C</span>+<span style='color:#a29bfe;'>T</span></td><td style='padding:4px;'>Lemari polietilen terpisah</td></tr>
+            </table>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_a2:
+            st.markdown("""
+            <div class="theory-box">
+            <div class="theory-title">⚠️ Aturan Kritis Penyimpanan Asam</div>
+            <ul style='color:#c7d2fe;font-size:0.82rem;line-height:2;margin:0;padding-left:16px;'>
+              <li><strong>Asam ≠ Basa</strong>: Lemari berbeda, rak berbeda</li>
+              <li><strong>HNO₃ ≠ Asam organik</strong>: HNO₃ bersifat oksidatif</li>
+              <li><strong>HF</strong>: wadah polietilen, jangan kaca!</li>
+              <li><strong>Asam + KCN/NaCN</strong>: FATAL → HCN terbentuk</li>
+              <li>Simpan di bawah ketinggian mata, secondary containment</li>
+              <li>Label jelas, tanggal terima & buka, suhu ruang</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with tab_basa:
+        st.markdown("### 🔵 Matrix Penyimpanan: Fokus Bahan BASA")
+        st.markdown("""
+        <div class="info-strip">Basa kuat (NaOH, KOH) berbeda secara signifikan risikonya dengan basa lemah (Ca(OH)₂, NaHCO₃). Keduanya tidak boleh disimpan bersama asam kuat maupun oksidator kuat.</div>
+        """, unsafe_allow_html=True)
+
+        all_acids_b = {n: d for n, d in CHEMICALS.items() if d.get("group") == "Asam"}
+        compare_groups_b = [
+            ("🧪 Asam Kuat/Sedang", list(all_acids_b.keys())),
+            ("🔵 Basa Lain", list(all_bases.keys())),
+            ("💥 Oksidator", list(all_oxid.keys())),
+            ("🔥 Flammable Pelarut", list(all_solv.keys())[:4]),
+        ]
+
+        col_labels_b = []
+        for grp_label, grp_names in compare_groups_b:
+            for n in grp_names:
+                col_labels_b.append((grp_label, n))
+
+        header_html_b = "<th style='background:#111827;padding:8px 6px;border:1px solid #2a3650;color:#8892a4;font-size:0.72rem;min-width:80px;'>Basa ↓ / Simpan dekat →</th>"
+        prev_grp_b = None
+        for grp, n in col_labels_b:
+            grp_color = {"🧪 Asam Kuat/Sedang":"#4ecdc4","🔵 Basa Lain":"#38bdf8","💥 Oksidator":"#ffe66d","🔥 Flammable Pelarut":"#ff6b35"}.get(grp,"#8892a4")
+            short = n.split("(")[0].strip()[:14]
+            border_left = "border-left:3px solid " + grp_color + ";" if grp != prev_grp_b else ""
+            header_html_b += f"<th style='background:#111827;padding:6px 4px;border:1px solid #2a3650;{border_left}color:{grp_color};font-size:0.68rem;text-align:center;'>{short}</th>"
+            prev_grp_b = grp
+
+        rows_html_base = ""
+        for base_name, base_data in all_bases.items():
+            base_classes = get_storage_class(base_name, base_data)
+            short_row = base_name.split("(")[0].strip()
+            row_html = f"<td style='background:#1a2236;padding:6px 10px;border:1px solid #2a3650;color:#38bdf8;font-size:0.75rem;white-space:nowrap;font-weight:600;'>{short_row}</td>"
+            prev_grp_b2 = None
+            for grp, col_name in col_labels_b:
+                grp_color = {"🧪 Asam Kuat/Sedang":"#4ecdc4","🔵 Basa Lain":"#38bdf8","💥 Oksidator":"#ffe66d","🔥 Flammable Pelarut":"#ff6b35"}.get(grp,"#8892a4")
+                border_left = "border-left:3px solid " + grp_color + "50;" if grp != prev_grp_b2 else ""
+                if col_name == base_name:
+                    row_html += f"<td style='background:#111827;padding:6px 4px;border:1px solid #2a3650;{border_left}text-align:center;color:#475569;font-size:0.85rem;'>—</td>"
+                else:
+                    col_data = CHEMICALS.get(col_name, {})
+                    col_classes = get_storage_class(col_name, col_data)
+                    s, r = storage_compat(base_classes, col_classes)
+                    row_html += f"<td style='{cell_style(s)}{border_left}padding:6px 4px;border:1px solid #2a3650;text-align:center;font-size:0.9rem;' title='{r}'>{cell_icon(s)}</td>"
+                prev_grp_b2 = grp
+            rows_html_base += f"<tr>{row_html}</tr>"
+
+        st.markdown(f"""
+        <div style='overflow-x:auto;margin:8px 0;'>
+        <table style='border-collapse:collapse;width:100%;'>
+          <thead><tr>{header_html_b}</tr></thead>
+          <tbody>{rows_html_base}</tbody>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            st.markdown("""
+            <div class="theory-box">
+            <div class="theory-title">🔵 Sub-Tipe Basa & Penyimpanan</div>
+            <table style='width:100%;font-size:0.8rem;color:#c7d2fe;border-collapse:collapse;'>
+              <tr><th style='text-align:left;padding:4px;color:#a5b4fc;'>Basa</th><th style='padding:4px;color:#a5b4fc;'>Kekuatan</th><th style='padding:4px;color:#a5b4fc;'>Lemari</th></tr>
+              <tr><td style='padding:4px;'>NaOH, KOH</td><td style='padding:4px;text-align:center;'><span style='color:#ef4444;'>Kuat</span></td><td style='padding:4px;'>Alkali cabinet terpisah</td></tr>
+              <tr><td style='padding:4px;'>NH₃ (aq)</td><td style='padding:4px;text-align:center;'><span style='color:#f59e0b;'>Lemah+Toksik</span></td><td style='padding:4px;'>Lemari berventilasi</td></tr>
+              <tr><td style='padding:4px;'>Ca(OH)₂</td><td style='padding:4px;text-align:center;'><span style='color:#22c55e;'>Sedang</span></td><td style='padding:4px;'>Rak basa umum (kering)</td></tr>
+              <tr><td style='padding:4px;'>NaHCO₃</td><td style='padding:4px;text-align:center;'><span style='color:#22c55e;'>Sangat lemah</span></td><td style='padding:4px;'>Rak umum aman</td></tr>
+            </table>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_b2:
+            st.markdown("""
+            <div class="theory-box">
+            <div class="theory-title">⚠️ Aturan Kritis Penyimpanan Basa</div>
+            <ul style='color:#c7d2fe;font-size:0.82rem;line-height:2;margin:0;padding-left:16px;'>
+              <li><strong>Basa kuat ≠ Asam kuat</strong>: Lemari berbeda WAJIB</li>
+              <li><strong>NaOH higroskopis</strong>: wadah kedap, jauhkan dari CO₂</li>
+              <li><strong>NH₃</strong>: jauhkan dari klorin dan asam apa pun</li>
+              <li><strong>Basa + alumunium</strong>: menghasilkan H₂ (flammable!)</li>
+              <li>Secondary containment wajib untuk basa kuat</li>
+              <li>APD: wajib kacamata splash-proof + sarung tangan karet</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with tab_panduan_simpan:
+        st.markdown("### 📖 Panduan Lengkap Penyimpanan Bahan Kimia")
+
+        st.markdown("""
+        <div class="theory-box">
+        <div class="theory-title">🏛️ Prinsip Dasar Penyimpanan (OSHA / NFPA 45 / Permenaker 5/2018)</div>
+        <ol style='color:#c7d2fe;font-size:0.85rem;line-height:2;margin:0;padding-left:20px;'>
+          <li>Pisahkan bahan berdasarkan <strong>sifat bahaya utama</strong> (FCOT), bukan hanya berdasarkan nama</li>
+          <li>Bahan yang berdekatan harus <strong>kompatibel</strong> — tidak boleh bereaksi berbahaya jika terjadi kebocoran</li>
+          <li>Gunakan <strong>lemari penyimpanan khusus</strong> sesuai golongan (flammable, acid, alkali, poison cabinet)</li>
+          <li>Setiap bahan wajib memiliki <strong>SDS (Safety Data Sheet)</strong> yang mudah diakses</li>
+          <li><strong>Secondary containment</strong> (baki/nampan) untuk bahan cair korosif dan flammable</li>
+          <li>Ventilasi memadai untuk bahan dengan tekanan uap tinggi atau bahan yang mengeluarkan gas</li>
+        </ol>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        sp_cols = st.columns(2)
+        with sp_cols[0]:
+            st.markdown("""
+            <div class="info-box">
+            <h4>🔥 Lemari Flammable (Flammable Cabinet)</h4>
+            <p>• Standar: FM/UL Listed, baja 18-gauge<br>
+            • Maks 60 galon (~227L) total<br>
+            • Ventilasi ke luar atau bersirkulasi dengan karbon aktif<br>
+            • Grounding anti-statis wajib<br>
+            • <strong>Tidak boleh</strong>: oksidator, asam oksidatif</p>
+            </div>
+            <div class="info-box" style='margin-top:10px;'>
+            <h4>🧪 Lemari Asam (Acid Cabinet)</h4>
+            <p>• Material: polietilen atau baja berlapis epoksi tahan asam<br>
+            • Pisahkan asam oksidatif (HNO₃) dari asam biasa<br>
+            • HF: lemari polietilen terpisah khusus<br>
+            • <strong>Tidak boleh</strong>: basa, sianida, bahan flammable</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with sp_cols[1]:
+            st.markdown("""
+            <div class="info-box">
+            <h4>🔵 Lemari Basa (Alkali Cabinet)</h4>
+            <p>• Material: tahan korosi alkali (polipropilen, SS 316)<br>
+            • NaOH disimpan dalam wadah kedap udara (higroskopis)<br>
+            • Amonia: lemari berventilasi khusus, dipisah dari basa padat<br>
+            • <strong>Tidak boleh</strong>: asam, oksidator kuat</p>
+            </div>
+            <div class="info-box" style='margin-top:10px;'>
+            <h4>☠️ Lemari Racun (Poison Cabinet)</h4>
+            <p>• Harus terkunci (double-lock untuk narkotika/psikotropika)<br>
+            • Buku stok dan logbook wajib diisi<br>
+            • Pisahkan toksik volatil dari toksik padat<br>
+            • <strong>Khusus</strong>: KCN/NaCN harus JAUH dari semua asam</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 📋 Checklist Inspeksi Penyimpanan Harian")
+        checklist_items = [
+            ("Semua wadah tertutup rapat dan tidak bocor","📦"),
+            ("Label terbaca jelas — nama, konsentrasi, tanggal buka","🏷️"),
+            ("Tidak ada asam berdekatan dengan basa di rak yang sama","🧪"),
+            ("Oksidator tersimpan di lemari terpisah dari flammable","💥"),
+            ("SDS tersedia dan mudah dijangkau untuk semua bahan","📄"),
+            ("APAR (fire extinguisher) dalam jangkauan dan aktif","🧯"),
+            ("Ventilasi berfungsi, tidak ada bau menyengat","🌀"),
+            ("Secondary containment (baki) bersih dan tidak penuh","🫙"),
+            ("Stok sianida/arsenik terkunci dan sesuai logbook","🔐"),
+            ("Bahan mudah terbakar jauh dari sumber panas/api terbuka","🔥"),
+        ]
+        for item, icon in checklist_items:
+            st.markdown(f"""
+            <div style='background:rgba(30,58,138,0.15);border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;
+                 padding:8px 14px;margin:4px 0;font-size:0.85rem;color:#e2e8f0;display:flex;align-items:center;gap:10px;'>
+              <span style='font-size:1.1rem;'>{icon}</span> {item}
+            </div>
+            """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════
 #  PAGE: DATABASE BAHAN
@@ -1541,8 +2076,8 @@ FCOT ChemSafe adalah **alat bantu referensi**, bukan pengganti SDS resmi!
 st.markdown("---")
 st.markdown("""
 <div style='text-align:center;color:#475569;font-size:0.78rem;padding:12px 0;'>
-  ⚗️ <strong style='color:#e2e8f0;'>FCOT ChemSafe v2</strong> &nbsp;·&nbsp;
-  Pengendalian Bahan Kimia · Teori FCOT · GHS Standard &nbsp;·&nbsp;
+  ⚗️ <strong style='color:#e2e8f0;'>FCOT ChemSafe v3</strong> &nbsp;·&nbsp;
+  Kompatibilitas Penyimpanan FCOT · Matrix Asam-Basa · GHS Standard &nbsp;·&nbsp;
   <em>Selalu konsultasikan SDS (Safety Data Sheet) bahan kimia Anda</em>
 </div>
 """, unsafe_allow_html=True)
