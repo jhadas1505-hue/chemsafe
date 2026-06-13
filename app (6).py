@@ -1759,6 +1759,46 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("<hr style='border-color:rgba(42,54,80,0.6);margin:16px 0 12px;'>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='padding:0 4px 12px;'>
+      <div style='font-family:Syne,sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:2px;
+                  text-transform:uppercase;color:#475569;margin-bottom:10px;'>👥 Tim Penyusun</div>
+      <div style='display:flex;flex-direction:column;gap:6px;'>
+        <div style='display:flex;align-items:center;gap:8px;'>
+          <div style='width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#4ecdc4,#a29bfe);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.6rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>1</div>
+          <div style='font-size:0.75rem;color:#cbd5e1;line-height:1.3;'>Dhe Tri Gita Setiawan</div>
+        </div>
+        <div style='display:flex;align-items:center;gap:8px;'>
+          <div style='width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ff6b35,#ffe66d);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.6rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>2</div>
+          <div style='font-size:0.75rem;color:#cbd5e1;line-height:1.3;'>Jihad Ali Sabillah</div>
+        </div>
+        <div style='display:flex;align-items:center;gap:8px;'>
+          <div style='width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#a29bfe,#ff6b35);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.6rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>3</div>
+          <div style='font-size:0.75rem;color:#cbd5e1;line-height:1.3;'>Rik Rik Lukitasari</div>
+        </div>
+        <div style='display:flex;align-items:center;gap:8px;'>
+          <div style='width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ffe66d,#4ecdc4);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.6rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>4</div>
+          <div style='font-size:0.75rem;color:#cbd5e1;line-height:1.3;'>Yasmin Mumtazah</div>
+        </div>
+        <div style='display:flex;align-items:center;gap:8px;'>
+          <div style='width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#a29bfe);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.6rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>5</div>
+          <div style='font-size:0.75rem;color:#cbd5e1;line-height:1.3;'>Muhammad Nabil Mutasimbillah</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ─────────────────────────────────────────────
 #  HEADER
 # ─────────────────────────────────────────────
@@ -2987,9 +3027,65 @@ FCOT ChemSafe adalah **alat bantu referensi**, bukan pengganti SDS resmi!
 # ─────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
-<div style='text-align:center;color:#475569;font-size:0.78rem;padding:12px 0;'>
-  ⚗️ <strong style='color:#e2e8f0;'>FCOT ChemSafe v3</strong> &nbsp;·&nbsp;
-  Kompatibilitas Penyimpanan FCOT · Matrix Asam-Basa · GHS Standard &nbsp;·&nbsp;
-  <em>Selalu konsultasikan SDS (Safety Data Sheet) bahan kimia Anda</em>
+<div style='background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #2a3650;
+     border-radius:16px;padding:28px 32px;margin:8px 0 4px;'>
+
+  <div style='display:flex;flex-wrap:wrap;gap:32px;justify-content:space-between;align-items:flex-start;'>
+
+    <div style='flex:1;min-width:220px;'>
+      <div style='font-family:Syne,sans-serif;font-weight:800;font-size:1.1rem;
+                  background:linear-gradient(90deg,#4ecdc4,#a29bfe,#ff6b35);
+                  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                  margin-bottom:6px;'>⚗️ FCOT ChemSafe v4</div>
+      <div style='color:#475569;font-size:0.78rem;line-height:1.7;'>
+        Kompatibilitas Penyimpanan FCOT<br>
+        Matrix Asam-Basa · Standar GHS<br>
+        <em style='color:#334155;'>Selalu konsultasikan SDS resmi bahan kimia Anda</em>
+      </div>
+    </div>
+
+    <div style='flex:1;min-width:220px;'>
+      <div style='font-family:Syne,sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:2px;
+                  text-transform:uppercase;color:#475569;margin-bottom:12px;'>👥 Tim Penyusun</div>
+      <div style='display:flex;flex-direction:column;gap:7px;'>
+        <div style='display:flex;align-items:center;gap:10px;'>
+          <div style='width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#4ecdc4,#a29bfe);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.65rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>1</div>
+          <span style='font-size:0.82rem;color:#94a3b8;'>Dhe Tri Gita Setiawan</span>
+        </div>
+        <div style='display:flex;align-items:center;gap:10px;'>
+          <div style='width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#ff6b35,#ffe66d);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.65rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>2</div>
+          <span style='font-size:0.82rem;color:#94a3b8;'>Jihad Ali Sabillah</span>
+        </div>
+        <div style='display:flex;align-items:center;gap:10px;'>
+          <div style='width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#a29bfe,#ff6b35);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.65rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>3</div>
+          <span style='font-size:0.82rem;color:#94a3b8;'>Rik Rik Lukitasari</span>
+        </div>
+        <div style='display:flex;align-items:center;gap:10px;'>
+          <div style='width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#ffe66d,#4ecdc4);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.65rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>4</div>
+          <span style='font-size:0.82rem;color:#94a3b8;'>Yasmin Mumtazah</span>
+        </div>
+        <div style='display:flex;align-items:center;gap:10px;'>
+          <div style='width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#a29bfe);
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:0.65rem;font-weight:800;color:#0a0e1a;flex-shrink:0;'>5</div>
+          <span style='font-size:0.82rem;color:#94a3b8;'>Muhammad Nabil Mutasimbillah</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style='border-top:1px solid #1e293b;margin-top:20px;padding-top:14px;
+              text-align:center;color:#334155;font-size:0.72rem;'>
+    Dibuat untuk keperluan pendidikan K3 Kimia &nbsp;·&nbsp; Referensi: PubChem · NIOSH · GHS UN · Permenaker 5/2018
+  </div>
 </div>
 """, unsafe_allow_html=True)
