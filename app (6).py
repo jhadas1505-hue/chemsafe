@@ -1732,7 +1732,6 @@ with st.sidebar:
         "<span style='font-size:2.6rem;'>&#9878;&#65039;</span><br>"
         "<span style='font-family:Syne,sans-serif;font-weight:800;font-size:1.25rem;background:linear-gradient(90deg,#4ecdc4,#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;'>ChemSafe</span><br>"
         "<span style='color:#8892a4;font-size:0.75rem;'>Politeknik AKA Bogor</span>"
-        "<span style='color:#8892a4;font-size:0.75rem;'>Kelompok 9</span>"
         "</div>"
         "<hr style='border-color:rgba(42,54,80,0.6);'>",
         unsafe_allow_html=True
