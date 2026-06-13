@@ -540,9 +540,7 @@ GHS_INFO = {
 }
 
 # ─────────────────────────────────────────────
-#  DATABASE KOMPATIBILITAS PENYIMPANAN
-#  Fokus: apakah dua bahan AMAN DISIMPAN BERDEKATAN
-#  Ref: NFPA 49/430, OSHA 29 CFR 1910, COSHH, GHS Purple Book
+#  DATABASE REAKSI SPESIFIK (dari app_3)
 # ─────────────────────────────────────────────
 def _pair(a, b):
     return tuple(sorted([a, b]))
@@ -1631,6 +1629,101 @@ def status_dot(s):
     return {"DANGER":"no","CAUTION":"warn","SAFE":"ok"}.get(s,"")
 
 # ─────────────────────────────────────────────
+#  STORAGE RULES (global – dipakai di Cek Kompatibilitas & Matrix)
+# ─────────────────────────────────────────────
+STORAGE_RULES = {
+    ("F","F"):   ("SAFE",   "Sesama flammable boleh satu lemari tahan api khusus flammable cabinet"),
+    ("F","C-A"): ("CAUTION","Asam korosif dapat merusak wadah logam flammable → risiko kebocoran uap mudah terbakar"),
+    ("F","C-B"): ("SAFE",   "Basa korosif tidak memicu ignitasi langsung; pisahkan secara fisik dalam lemari yang sama"),
+    ("F","O"):   ("DANGER", "Oksidator + flammable = risiko kebakaran/ledakan spontan jika ada kebocoran uap"),
+    ("F","T"):   ("CAUTION","Toxic dapat meningkatkan risiko paparan saat kebocoran uap flammable; butuh ventilasi ekstra"),
+    ("C-A","F"): ("CAUTION","Uap asam + uap pelarut mudah terbakar di ruang tertutup berpotensi menghasilkan campuran berbahaya"),
+    ("C-A","C-A"):("SAFE",  "Sesama asam korosif boleh disimpan satu lemari (acid cabinet); pisahkan asam oksidatif dan non-oksidatif"),
+    ("C-A","C-B"):("DANGER","Asam + basa kuat → jika terjadi kebocoran, netralisasi eksotermik kuat, semburan korosif, gas toksik"),
+    ("C-A","O"):  ("CAUTION","Asam oksidatif (HNO₃) pisahkan dari asam biasa; asam non-oksidatif + oksidator solid perlu jarak"),
+    ("C-A","T"):  ("CAUTION","Beberapa asam dapat membebaskan gas toksik dari senyawa toksik padat (mis. KCN + asam → HCN)"),
+    ("C-B","F"):  ("SAFE",   "Basa kuat tidak memicu kebakaran; simpan terpisah secara fisik dari flammable cabinet"),
+    ("C-B","C-A"):("DANGER","Basa + asam kuat → reaksi netralisasi eksotermik hebat jika tumpah bersama"),
+    ("C-B","C-B"):("SAFE",  "Sesama basa korosif aman satu lemari (alkali cabinet); hindari campuran dengan logam aktif"),
+    ("C-B","O"):  ("DANGER","Basa kuat + oksidator kuat (mis. NaOH + NaOCl pekat) dapat melepas gas O₂ dan panas"),
+    ("C-B","T"):  ("CAUTION","Basa dapat menguraikan beberapa senyawa toksik; ventilasi baik, monitor secara berkala"),
+    ("O","F"):    ("DANGER","KRITIS: Oksidator tidak boleh satu ruangan dengan flammable; risiko kebakaran/ledakan"),
+    ("O","C-A"):  ("CAUTION","Asam oksidatif satu kategori dengan oksidator solid; pisahkan oksidator pekat dari asam biasa"),
+    ("O","C-B"):  ("DANGER","Oksidator kuat + basa kuat → dekomposisi oksidator dipercepat, pelepasan O₂, panas"),
+    ("O","O"):    ("CAUTION","Sesama oksidator umumnya aman, tapi pisahkan oksidator organik dari anorganik"),
+    ("O","T"):    ("CAUTION","Oksidator dapat mengoksidasi senyawa toksik menghasilkan produk lebih berbahaya; evaluasi SDS"),
+    ("T","F"):    ("CAUTION","Toxic mudah terbakar (mis. benzena, metanol) simpan di flammable cabinet; label ganda F+T"),
+    ("T","C-A"):  ("CAUTION","Asam dapat bereaksi dengan beberapa toksik (mis. sianida → HCN); WAJIB pisahkan sianida dari asam"),
+    ("T","C-B"):  ("CAUTION","Basa dapat menguraikan beberapa toksik; pantau stabilitas produk toksik"),
+    ("T","O"):    ("CAUTION","Oksidator + toksik organik dapat membentuk produk toksik baru; evaluasi SDS"),
+    ("T","T"):    ("SAFE",   "Sesama toksik aman satu lemari terkunci (poison cabinet); pisahkan berdasarkan rute paparan"),
+}
+
+def get_storage_class(name, data):
+    """Tentukan kelas penyimpanan bahan berdasarkan FCOT dan group."""
+    fcot = set(data.get("fcot", []))
+    group = data.get("group", "")
+    classes = []
+    if "F" in fcot:
+        classes.append("F")
+    if "C" in fcot:
+        if group == "Asam" or "asam" in data.get("class","").lower():
+            classes.append("C-A")
+        elif group == "Basa" or "basa" in data.get("class","").lower():
+            classes.append("C-B")
+        else:
+            ph_str = data.get("ph","7")
+            try:
+                ph_val = float(ph_str.replace("<","").replace(">","").strip().split("(")[0].strip())
+                classes.append("C-A" if ph_val < 7 else "C-B")
+            except:
+                classes.append("C-A")
+    if "O" in fcot:
+        classes.append("O")
+    if "T" in fcot:
+        classes.append("T")
+    return classes if classes else ["NETRAL"]
+
+def storage_compat(classes1, classes2):
+    """Cek kompatibilitas penyimpanan dua bahan berdasarkan kelas FCOT-storage."""
+    if not classes1 or not classes2 or classes1==["NETRAL"] or classes2==["NETRAL"]:
+        return "SAFE", "Bahan inert/netral aman disimpan bersama hampir semua bahan."
+    worst = "SAFE"
+    reason = ""
+    for c1 in classes1:
+        for c2 in classes2:
+            rule = STORAGE_RULES.get((c1, c2))
+            if rule:
+                s, r = rule
+                if s == "DANGER":
+                    worst = "DANGER"
+                    reason = r
+                elif s == "CAUTION" and worst != "DANGER":
+                    worst = "CAUTION"
+                    reason = r
+                elif s == "SAFE" and worst == "SAFE" and not reason:
+                    reason = r
+    if not reason:
+        reason = "Tidak ada aturan spesifik; konsultasikan SDS."
+    return worst, reason
+
+# Rekomendasi lemari penyimpanan
+STORAGE_CABINET = {
+    "F":   ("🔥 Flammable Safety Cabinet",  "#ff6b35", "Lemari baja tahan api khusus cairan mudah terbakar (FM/UL listed). Grounded, ventilasi tersendiri, jauh dari sumber panas dan oksidator."),
+    "C-A": ("🧪 Acid Cabinet",              "#4ecdc4", "Lemari polypropylene atau dilapisi anti-asam. Tray sekunder (secondary containment). Ventilasi ke luar. Jauh dari basa, logam, dan bahan organik reaktif."),
+    "C-B": ("🔵 Alkali Cabinet",            "#38bdf8", "Lemari tahan korosi khusus basa. Secondary containment wajib. Pisahkan dari asam dan oksidator. Hindari lemari logam yang bisa bereaksi."),
+    "O":   ("💥 Oxidizer Cabinet",          "#ffe66d", "Lemari khusus oksidator, jauh dari flammable dan bahan organik. Tidak menggunakan pelumas atau bahan mudah terbakar di sekitarnya."),
+    "T":   ("☠️ Poison/Toxic Cabinet",      "#a29bfe", "Lemari terkunci (poison cabinet) dengan log akses. Ventilasi baik. Pisahkan dari asam (bahaya HCN dari sianida). Hanya personel terotorisasi."),
+    "NETRAL": ("📦 General Storage",        "#8892a4", "Rak penyimpanan umum cukup. Tetap gunakan secondary containment dan label yang jelas."),
+}
+
+STORAGE_DISTANCE = {
+    "DANGER": "🚫 Pisahkan di **ruangan/gedung berbeda** atau gunakan dinding tahan api. Jarak minimum 3 meter jika satu ruangan dengan sekat api.",
+    "CAUTION": "⚠️ Jarak aman minimal **1–2 meter** dalam lemari berbeda. Gunakan secondary containment. Monitor kebocoran secara berkala.",
+    "SAFE": "✅ Dapat disimpan dalam **satu lemari khusus golongannya**. Tetap gunakan tray sekunder dan pastikan ventilasi memadai.",
+}
+
+# ─────────────────────────────────────────────
 #  SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
@@ -1862,114 +1955,223 @@ elif menu == "🔬 Cek Kompatibilitas":
         if check_btn:
             result = lookup_compatibility(chem1, chem2)
 
+            # ── Tentukan status & reason ──
             if result is None:
-                auto_status, auto_reason = heuristic_compat(chem1, chem2)
-                add_to_history(chem1, chem2, auto_status)
-                box_class = {"DANGER":"result-danger","CAUTION":"result-warning","SAFE":"result-safe"}[auto_status]
-                em = status_emoji(auto_status)
-                lbl = status_label(auto_status)
-
-                st.markdown(f"""
-                <div class="{box_class}">
-                    <div class="result-title">{em} STATUS: {lbl}</div>
-                    <div class="result-sub">⚠️ Pasangan ini belum ada di database lengkap. Hasil berdasarkan analisis FCOT otomatis.</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown(f"""
-                <div class="info-box"><h4>📊 Analisis FCOT Otomatis</h4><p>{auto_reason}</p></div>
-                """, unsafe_allow_html=True)
-                all_ghs = list(set(ci1.get("ghs",[]) + ci2.get("ghs",[])))
-                if all_ghs:
-                    st.markdown("**🏷️ Simbol Bahaya GHS Gabungan:**")
-                    st.markdown(ghs_html(all_ghs), unsafe_allow_html=True)
-                st.info("💡 Untuk keakuratan lebih tinggi, konsultasikan SDS (Safety Data Sheet) masing-masing bahan.")
-
+                final_status, final_reason = heuristic_compat(chem1, chem2)
+                is_auto = True
             else:
-                status = result["status"]
-                add_to_history(chem1, chem2, status)
-                box_class = {"DANGER":"result-danger","CAUTION":"result-warning","SAFE":"result-safe"}[status]
-                em = status_emoji(status)
-                lbl = status_label(status)
+                final_status = result["status"]
+                final_reason = result.get("reason", result.get("short",""))
+                is_auto = False
 
+            add_to_history(chem1, chem2, final_status)
+
+            # ── Kompatibilitas penyimpanan via STORAGE_RULES ──
+            sc1 = get_storage_class(chem1, ci1)
+            sc2 = get_storage_class(chem2, ci2)
+            stor_status, stor_reason = storage_compat(sc1, sc2)
+
+            # Pakai status terburuk antara database pair dan storage rules
+            severity = {"DANGER": 2, "CAUTION": 1, "SAFE": 0}
+            display_status = final_status if severity[final_status] >= severity[stor_status] else stor_status
+
+            box_class = {"DANGER":"result-danger","CAUTION":"result-warning","SAFE":"result-safe"}[display_status]
+            em = status_emoji(display_status)
+            lbl = status_label(display_status)
+
+            # ════════════════════════════════════════
+            # BLOK 1: STATUS UTAMA PENYIMPANAN
+            # ════════════════════════════════════════
+            st.markdown(f"""
+            <div class="{box_class}">
+                <div class="result-title">{em} KOMPATIBILITAS PENYIMPANAN: {lbl}</div>
+                <div class="result-sub">
+                    {'⚠️ Pasangan belum ada di database lengkap — hasil berdasarkan analisis FCOT otomatis.' if is_auto else result.get('short','')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ════════════════════════════════════════
+            # BLOK 2: ATURAN PEMISAHAN FISIK
+            # ════════════════════════════════════════
+            dist_msg = STORAGE_DISTANCE[display_status]
+            dist_bg  = {"DANGER":"rgba(239,68,68,0.12)","CAUTION":"rgba(245,158,11,0.10)","SAFE":"rgba(34,197,94,0.10)"}[display_status]
+            dist_border = {"DANGER":"#ef4444","CAUTION":"#f59e0b","SAFE":"#22c55e"}[display_status]
+            st.markdown(f"""
+            <div style='background:{dist_bg};border-left:4px solid {dist_border};
+                 border-radius:0 12px 12px 0;padding:1rem 1.2rem;margin:0.6rem 0;'>
+                <h4 style='color:{dist_border};margin:0 0 0.4rem;font-size:0.9rem;'>📏 Aturan Pemisahan Fisik</h4>
+                <p style='color:#e2e8f0;font-size:0.88rem;line-height:1.6;margin:0'>{dist_msg}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ════════════════════════════════════════
+            # BLOK 3: ANALISIS PENYIMPANAN PER-BAHAN (2 kolom)
+            # ════════════════════════════════════════
+            st.markdown("---")
+            st.markdown("### 📦 Rekomendasi Penyimpanan Per Bahan")
+            col_s1, col_s2 = st.columns(2)
+
+            def render_storage_card(chem_name, chem_data, storage_classes):
+                name_short = chem_name.split('(')[0].strip()
+                lines = []
+                for sc in storage_classes:
+                    if sc in STORAGE_CABINET:
+                        cab_name, cab_color, cab_desc = STORAGE_CABINET[sc]
+                        lines.append(f"""
+                        <div style='margin-bottom:10px;'>
+                          <div style='font-weight:700;color:{cab_color};font-size:0.88rem;margin-bottom:4px;'>{cab_name}</div>
+                          <div style='color:#cbd5e1;font-size:0.82rem;line-height:1.5;'>{cab_desc}</div>
+                        </div>""")
+                cab_html = "".join(lines) if lines else "<div style='color:#8892a4'>Penyimpanan umum</div>"
+                return f"""
+                <div class="chem-card" style='border-left:3px solid #4ecdc4;'>
+                  <div class="chem-name" style='margin-bottom:8px;'>{name_short}</div>
+                  <div style='font-size:0.78rem;color:#8892a4;margin-bottom:8px;'>
+                    Kelas penyimpanan: <strong style='color:#e2e8f0'>{', '.join(storage_classes)}</strong>
+                  </div>
+                  {cab_html}
+                  <div style='margin-top:10px;padding-top:10px;border-top:1px solid #2a3650;'>
+                    <div style='font-size:0.78rem;font-weight:700;color:#8892a4;margin-bottom:4px;'>📋 Rekomendasi SDS</div>
+                    <div style='font-size:0.82rem;color:#cbd5e1;line-height:1.5;'>{chem_data.get('storage','—')}</div>
+                  </div>
+                </div>"""
+
+            with col_s1:
+                st.markdown(render_storage_card(chem1, ci1, sc1), unsafe_allow_html=True)
+            with col_s2:
+                st.markdown(render_storage_card(chem2, ci2, sc2), unsafe_allow_html=True)
+
+            # ════════════════════════════════════════
+            # BLOK 4: ANALISIS RISIKO PENYIMPANAN FCOT
+            # ════════════════════════════════════════
+            st.markdown("---")
+            st.markdown("### 🔬 Analisis Risiko Penyimpanan FCOT")
+
+            col_a1, col_a2 = st.columns([1.4, 1])
+            with col_a1:
+                # Alasan dari storage rules
                 st.markdown(f"""
-                <div class="{box_class}">
-                    <div class="result-title">{em} STATUS: {lbl}</div>
-                    <div class="result-sub">{result['short']}</div>
+                <div class="info-box">
+                    <h4>📊 Dasar Penilaian Kompatibilitas Penyimpanan</h4>
+                    <p>{stor_reason}</p>
                 </div>
                 """, unsafe_allow_html=True)
+                # Alasan tambahan dari database/heuristic
+                if final_reason and final_reason != stor_reason:
+                    note_bg = {"DANGER":"rgba(239,68,68,0.08)","CAUTION":"rgba(245,158,11,0.08)","SAFE":"rgba(34,197,94,0.08)"}[display_status]
+                    note_border = {"DANGER":"#ef4444","CAUTION":"#f59e0b","SAFE":"#22c55e"}[display_status]
+                    note_label = {"DANGER":"🚨 Mengapa Berbahaya Disimpan Berdekatan?","CAUTION":"⚠️ Mengapa Perlu Hati-Hati?","SAFE":"✅ Mengapa Aman Disimpan Bersama?"}[display_status]
+                    st.markdown(f"""
+                    <div style='background:{note_bg};border-left:4px solid {note_border};
+                         border-radius:0 12px 12px 0;padding:1rem 1.2rem;margin:0.5rem 0;'>
+                        <h4 style='color:{note_border};margin:0 0 0.4rem;font-size:0.9rem;'>{note_label}</h4>
+                        <p style='color:#e2e8f0;font-size:0.88rem;line-height:1.6;margin:0'>{final_reason}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col_a2:
+                # Klasifikasi FCOT masing-masing bahan
                 st.markdown(f"""
-                <div class="info-box"><h4>📋 Ringkasan</h4><p>{result['reason']}</p></div>
+                <div class="theory-box">
+                  <div class="theory-title">🏷️ Profil FCOT Bahan</div>
+                  <div style='margin-bottom:8px;'>
+                    <div style='font-size:0.78rem;color:#8892a4;margin-bottom:4px;'>{chem1.split('(')[0].strip()}</div>
+                    {fcot_html(ci1.get('fcot',[]))}
+                  </div>
+                  <div>
+                    <div style='font-size:0.78rem;color:#8892a4;margin-bottom:4px;'>{chem2.split('(')[0].strip()}</div>
+                    {fcot_html(ci2.get('fcot',[]))}
+                  </div>
+                </div>
                 """, unsafe_allow_html=True)
 
-                # Status-specific explanation
-                if status == "DANGER" and result.get("why_danger"):
-                    st.markdown(f"""
-                    <div style='background:rgba(239,68,68,0.1);border-left:4px solid #ef4444;
-                         border-radius:0 12px 12px 0;padding:1rem 1.2rem;margin:0.5rem 0;'>
-                        <h4 style='color:#fca5a5;margin:0 0 0.4rem;'>🚨 Mengapa BERBAHAYA?</h4>
-                        <p style='color:#e2e8f0;font-size:0.88rem;line-height:1.6;margin:0'>{result['why_danger']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                if status == "SAFE" and result.get("why_safe"):
-                    st.markdown(f"""
-                    <div style='background:rgba(34,197,94,0.1);border-left:4px solid #22c55e;
-                         border-radius:0 12px 12px 0;padding:1rem 1.2rem;margin:0.5rem 0;'>
-                        <h4 style='color:#86efac;margin:0 0 0.4rem;'>✅ Mengapa AMAN?</h4>
-                        <p style='color:#e2e8f0;font-size:0.88rem;line-height:1.6;margin:0'>{result['why_safe']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                if status == "CAUTION" and result.get("why_caution"):
-                    st.markdown(f"""
-                    <div style='background:rgba(245,158,11,0.1);border-left:4px solid #f59e0b;
-                         border-radius:0 12px 12px 0;padding:1rem 1.2rem;margin:0.5rem 0;'>
-                        <h4 style='color:#fde68a;margin:0 0 0.4rem;'>⚠️ Mengapa Harus HATI-HATI?</h4>
-                        <p style='color:#e2e8f0;font-size:0.88rem;line-height:1.6;margin:0'>{result['why_caution']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # Detail teknis
-                st.markdown("---")
-                col_r1, col_r2 = st.columns(2)
-                with col_r1:
-                    st.markdown("**⚗️ Reaksi Kimia:**")
-                    st.code(result.get("reaction","—"), language=None)
-                    st.markdown("**🏭 Produk yang Terbentuk:**")
-                    for p in result.get("products",[]):
-                        dot = "🔴" if any(w in p.lower() for w in ["toksik","eksplosif","gas","berbahaya","korosif","ledak"]) else "🟢"
-                        st.markdown(f"{dot} {p}")
-                with col_r2:
-                    st.markdown("**🔬 Klasifikasi FCOT Terlibat:**")
-                    st.markdown(fcot_html(result.get("fcot_involved",[])), unsafe_allow_html=True)
-                    st.markdown("**📖 Analisis Teori FCOT:**")
-                    st.markdown(f"""
-                    <div class="theory-box">
-                        <p style='color:#c7d2fe;font-size:0.85rem;margin:0'>{result.get('theory','—')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # GHS & First Aid
+                # GHS symbols
                 all_ghs = list(set(ci1.get("ghs",[]) + ci2.get("ghs",[])))
                 if all_ghs:
-                    st.markdown("**🏷️ Simbol Bahaya GHS:**")
+                    st.markdown("**🏷️ Simbol GHS Gabungan:**")
                     st.markdown(ghs_html(all_ghs), unsafe_allow_html=True)
 
-                st.markdown("---")
-                st.markdown("**🩺 Pertolongan Pertama & Penyimpanan:**")
-                col_fa1, col_fa2 = st.columns(2)
-                with col_fa1:
-                    st.markdown(f"""
-                    <div class="info-box">
-                        <h4>🧪 {chem1.split('(')[0].strip()}</h4>
-                        <p><b>P3K:</b> {ci1.get('first_aid','—')}<br><b>Simpan:</b> {ci1.get('storage','—')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col_fa2:
-                    st.markdown(f"""
-                    <div class="info-box">
-                        <h4>🧪 {chem2.split('(')[0].strip()}</h4>
-                        <p><b>P3K:</b> {ci2.get('first_aid','—')}<br><b>Simpan:</b> {ci2.get('storage','—')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            # ════════════════════════════════════════
+            # BLOK 5: CHECKLIST KESELAMATAN PENYIMPANAN
+            # ════════════════════════════════════════
+            st.markdown("---")
+            st.markdown("### ✅ Checklist Keselamatan Penyimpanan")
+
+            # Generate checklist dinamis berdasarkan FCOT
+            all_fcot = set(ci1.get("fcot",[])) | set(ci2.get("fcot",[]))
+            checklist_items = [
+                ("📦", "Pastikan semua wadah berlabel jelas (nama bahan, bahaya, tanggal)", True),
+                ("🧯", "Secondary containment (baki/tray) wajib untuk semua bahan cair korosif/toksik", "C" in all_fcot or "T" in all_fcot),
+                ("🔒", "Lemari toksik dikunci; hanya personel terotorisasi yang dapat mengakses", "T" in all_fcot),
+                ("💨", "Pastikan ventilasi lemari/ruangan memadai; cek aliran udara", "T" in all_fcot or "F" in all_fcot),
+                ("🌡️", "Simpan jauh dari sumber panas, api, dan paparan sinar matahari langsung", "F" in all_fcot or "O" in all_fcot),
+                ("🚫", "JANGAN simpan flammable & oksidator dalam satu lemari/ruangan tanpa sekat api", "F" in all_fcot and "O" in all_fcot),
+                ("🚫", "JANGAN simpan asam & basa dalam satu lemari tanpa sekat khusus", display_status == "DANGER" and any(sc in sc1 for sc in ["C-A","C-B"]) and any(sc in sc2 for sc in ["C-A","C-B"])),
+                ("📋", "Tempelkan SDS (Safety Data Sheet) di dekat lokasi penyimpanan masing-masing bahan", True),
+                ("🧤", "APD (sarung tangan, kacamata, jas lab) wajib saat memindahkan atau memeriksa wadah", True),
+                ("🔍", "Inspeksi rutin kondisi wadah (kebocoran, korosi, label) minimal sebulan sekali", True),
+            ]
+
+            checklist_html = ""
+            for icon, item, active in checklist_items:
+                if active:
+                    checklist_html += f"""
+                    <div style='display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(42,54,80,0.5);'>
+                      <span style='font-size:1.1rem;flex-shrink:0;'>{icon}</span>
+                      <span style='font-size:0.85rem;color:#e2e8f0;line-height:1.5;'>{item}</span>
+                    </div>"""
+
+            st.markdown(f"""
+            <div class="chem-card">
+              {checklist_html}
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ════════════════════════════════════════
+            # BLOK 6: DETAIL REAKSI KIMIA (kolapsibel)
+            # ════════════════════════════════════════
+            st.markdown("---")
+            with st.expander("⚗️ Detail Reaksi Kimia (jika dicampurkan) — Klik untuk buka"):
+                st.caption("ℹ️ Informasi ini menggambarkan apa yang terjadi jika bahan DICAMPURKAN secara langsung — berbeda dari risiko penyimpanan di atas.")
+                if result is not None:
+                    col_r1, col_r2 = st.columns(2)
+                    with col_r1:
+                        st.markdown("**⚗️ Persamaan Reaksi:**")
+                        st.code(result.get("reaction","—"), language=None)
+                        st.markdown("**🏭 Produk yang Terbentuk:**")
+                        for p in result.get("products",[]):
+                            dot = "🔴" if any(w in p.lower() for w in ["toksik","eksplosif","gas","berbahaya","korosif","ledak"]) else "🟢"
+                            st.markdown(f"{dot} {p}")
+                    with col_r2:
+                        st.markdown("**🔬 Klasifikasi FCOT Terlibat:**")
+                        st.markdown(fcot_html(result.get("fcot_involved",[])), unsafe_allow_html=True)
+                        st.markdown("**📖 Analisis Teori FCOT:**")
+                        st.markdown(f"""
+                        <div class="theory-box">
+                            <p style='color:#c7d2fe;font-size:0.85rem;margin:0'>{result.get('theory','—')}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("Data reaksi langsung tidak tersedia untuk pasangan ini. Lihat SDS masing-masing bahan untuk detail.")
+
+            # P3K per bahan
+            st.markdown("**🩺 Pertolongan Pertama:**")
+            col_fa1, col_fa2 = st.columns(2)
+            with col_fa1:
+                st.markdown(f"""
+                <div class="info-box">
+                    <h4>🧪 {chem1.split('(')[0].strip()}</h4>
+                    <p>{ci1.get('first_aid','—')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_fa2:
+                st.markdown(f"""
+                <div class="info-box">
+                    <h4>🧪 {chem2.split('(')[0].strip()}</h4>
+                    <p>{ci2.get('first_aid','—')}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
     # Tambah bahan kustom
     st.markdown("---")
@@ -2012,91 +2214,6 @@ elif menu == "🗺️ Matrix Penyimpanan":
     Penilaian berdasarkan <strong>risiko kebocoran, penguapan, dan kontak tidak sengaja saat penyimpanan</strong> — bukan reaksi langsung.
     </div>
     """, unsafe_allow_html=True)
-
-    # ── STORAGE COMPATIBILITY MATRIX DATA ──
-    # Rows = bahan yang disimpan, Cols = bahan yang berdekatan
-    # Asam dan Basa dipisah karena risikonya berbeda
-    # Status: SAFE / CAUTION / DANGER
-    # Basis: NFPA 49, OSHA 29 CFR 1910.106, COSHH UK, standar OSHA Storage
-
-    STORAGE_RULES = {
-        # (sifat_bahan, sifat_tetangga): (status, alasan_singkat)
-        ("F","F"):   ("SAFE",   "Sesama flammable boleh satu lemari tahan api khusus flammable cabinet"),
-        ("F","C-A"): ("CAUTION","Asam korosif dapat merusak wadah logam flammable → risiko kebocoran uap mudah terbakar"),
-        ("F","C-B"): ("SAFE",   "Basa korosif tidak memicu ignitasi langsung; pisahkan secara fisik dalam lemari yang sama"),
-        ("F","O"):   ("DANGER", "Oksidator + flammable = risiko kebakaran/ledakan spontan jika ada kebocoran uap"),
-        ("F","T"):   ("CAUTION","Toxic dapat meningkatkan risiko paparan saat kebocoran uap flammable; butuh ventilasi ekstra"),
-        ("C-A","F"): ("CAUTION","Uap asam + uap pelarut mudah terbakar di ruang tertutup berpotensi menghasilkan campuran berbahaya"),
-        ("C-A","C-A"):("SAFE",  "Sesama asam korosif boleh disimpan satu lemari (acid cabinet); pisahkan asam oksidatif dan non-oksidatif"),
-        ("C-A","C-B"):("DANGER","Asam + basa kuat → jika terjadi kebocoran, netralisasi eksotermik kuat, semburan korosif, gas toksik"),
-        ("C-A","O"):  ("CAUTION","Asam oksidatif (HNO₃) pisahkan dari asam biasa; asam non-oksidatif + oksidator solid perlu jarak"),
-        ("C-A","T"):  ("CAUTION","Beberapa asam dapat membebaskan gas toksik dari senyawa toksik padat (mis. KCN + asam → HCN)"),
-        ("C-B","F"):  ("SAFE",   "Basa kuat tidak memicu kebakaran; simpan terpisah secara fisik dari flammable cabinet"),
-        ("C-B","C-A"):("DANGER","Basa + asam kuat → reaksi netralisasi eksotermik hebat jika tumpah bersama"),
-        ("C-B","C-B"):("SAFE",  "Sesama basa korosif aman satu lemari (alkali cabinet); hindari campuran dengan logam aktif"),
-        ("C-B","O"):  ("DANGER","Basa kuat + oksidator kuat (mis. NaOH + NaOCl pekat) dapat melepas gas O₂ dan panas"),
-        ("C-B","T"):  ("CAUTION","Basa dapat menguraikan beberapa senyawa toksik; ventilasi baik, monitor secara berkala"),
-        ("O","F"):    ("DANGER","KRITIS: Oksidator tidak boleh satu ruangan dengan flammable; risiko kebakaran/ledakan"),
-        ("O","C-A"):  ("CAUTION","Asam oksidatif satu kategori dengan oksidator solid; pisahkan oksidator pekat dari asam biasa"),
-        ("O","C-B"):  ("DANGER","Oksidator kuat + basa kuat → dekomposisi oksidator dipercepat, pelepasan O₂, panas"),
-        ("O","O"):    ("CAUTION","Sesama oksidator umumnya aman, tapi pisahkan oksidator organik dari anorganik"),
-        ("O","T"):    ("CAUTION","Oksidator dapat mengoksidasi senyawa toksik menghasilkan produk lebih berbahaya; evaluasi SDS"),
-        ("T","F"):    ("CAUTION","Toxic mudah terbakar (mis. benzena, metanol) simpan di flammable cabinet; label ganda F+T"),
-        ("T","C-A"):  ("CAUTION","Asam dapat bereaksi dengan beberapa toksik (mis. sianida → HCN); WAJIB pisahkan sianida dari asam"),
-        ("T","C-B"):  ("CAUTION","Basa dapat menguraikan beberapa toksik; pantau stabilitas produk toksik"),
-        ("T","O"):    ("CAUTION","Oksidator + toksik organik dapat membentuk produk toksik baru; evaluasi SDS"),
-        ("T","T"):    ("SAFE",   "Sesama toksik aman satu lemari terkunci (poison cabinet); pisahkan berdasarkan rute paparan"),
-    }
-
-    # Tambahkan data sub-kelompok asam ke setiap bahan
-    def get_storage_class(name, data):
-        """Tentukan kelas penyimpanan bahan berdasarkan FCOT dan group."""
-        fcot = set(data.get("fcot", []))
-        group = data.get("group", "")
-        classes = []
-        if "F" in fcot:
-            classes.append("F")
-        if "C" in fcot:
-            if group == "Asam" or "asam" in data.get("class","").lower():
-                classes.append("C-A")
-            elif group == "Basa" or "basa" in data.get("class","").lower():
-                classes.append("C-B")
-            else:
-                # Default: cek pH
-                ph_str = data.get("ph","7")
-                try:
-                    ph_val = float(ph_str.replace("<","").replace(">","").strip().split("(")[0].strip())
-                    classes.append("C-A" if ph_val < 7 else "C-B")
-                except:
-                    classes.append("C-A")  # default asam jika tidak jelas
-        if "O" in fcot:
-            classes.append("O")
-        if "T" in fcot:
-            classes.append("T")
-        return classes if classes else ["NETRAL"]
-
-    def storage_compat(classes1, classes2):
-        """Cek kompatibilitas penyimpanan dua bahan berdasarkan kelas FCOT-storage."""
-        if not classes1 or not classes2 or classes1==["NETRAL"] or classes2==["NETRAL"]:
-            return "SAFE", "Bahan inert/netral aman disimpan bersama hampir semua bahan."
-        worst = "SAFE"
-        reason = ""
-        for c1 in classes1:
-            for c2 in classes2:
-                rule = STORAGE_RULES.get((c1, c2))
-                if rule:
-                    s, r = rule
-                    if s == "DANGER":
-                        worst = "DANGER"
-                        reason = r
-                    elif s == "CAUTION" and worst != "DANGER":
-                        worst = "CAUTION"
-                        reason = r
-                    elif s == "SAFE" and worst == "SAFE" and not reason:
-                        reason = r
-        if not reason:
-            reason = "Tidak ada aturan spesifik; konsultasikan SDS."
-        return worst, reason
 
     # ── TAB UTAMA ──
     tab_matrix, tab_asam, tab_basa, tab_panduan_simpan = st.tabs([
